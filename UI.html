@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gmail Assistant Extension UI</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Heroicons (Vector icons) -->
+    <script src="https://unpkg.com/@heroicons/react/solid"></script>
+    <!-- Google Font - Product Sans or Roboto -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+      }
+      .screen {
+        display: none;
+      }
+      .screen.active {
+        display: block;
+      }
+      .modal-wrapper {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+          0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        max-width: 600px;
+        width: 100%;
+      }
+      .gmail-button {
+        background-color: #1a73e8;
+        color: white;
+      }
+      .gmail-button:hover {
+        background-color: #1765cc;
+      }
+      .gmail-header {
+        background-color: #1a73e8;
+        color: white;
+      }
+      .settings-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 50;
+        justify-content: center;
+        align-items: center;
+      }
+      .settings-modal.active {
+        display: flex;
+      }
+      .settings-content {
+        background-color: white;
+        border-radius: 0.5rem;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+          0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .checkbox-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      /* Spinner styles */
+      .spinner-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 40px;
+        height: 200px;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(26, 115, 232, 0.2);
+        border-radius: 50%;
+        border-top-color: #1a73e8;
+        animation: spinner-rotate 1s linear infinite;
+      }
+
+      .hidden-content {
+        display: none;
+      }
+
+      @keyframes spinner-rotate {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Hide native dropdown arrows */
+      select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: none;
+      }
+
+      /* Remove the default arrow in IE10+ */
+      select::-ms-expand {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 flex justify-center items-center min-h-screen p-4">
+    <!-- Modal Wrapper -->
+    <div class="modal-wrapper bg-white rounded-lg overflow-hidden">
+      <!-- Screen 1: Assistant Selection -->
+      <div id="screen1" class="screen active">
+        <!-- Header -->
+        <div class="gmail-header px-4 py-3 flex justify-between items-center">
+          <h2 class="text-lg font-medium text-white">AI Assistant</h2>
+          <div class="flex items-center space-x-2">
+            <button
+              id="keybindsBtn"
+              class="text-white hover:text-gray-100"
+              onclick="toggleKeybinds()"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+            <button
+              id="settingsBtn"
+              class="text-white hover:text-gray-100"
+              onclick="toggleSettings()"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+            <button class="text-white hover:text-gray-100">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-4 space-y-4">
+          <!-- Assistant Selection -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label
+                for="assistant"
+                class="block text-sm font-medium text-gray-700"
+                >Select Assistant</label
+              >
+              <div class="relative group">
+                <button
+                  class="text-blue-500 hover:text-blue-700 h-7 w-7 flex items-center justify-center border border-gray-300 rounded-md transition-colors"
+                  aria-label="Auto-detect assistant"
+                >
+                  <span class="text-lg">✨</span>
+                </button>
+                <div
+                  class="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none"
+                >
+                  Let AI guess the assistant
+                  <div
+                    class="absolute top-full right-2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="relative">
+              <select
+                id="assistant"
+                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+              >
+                <option>HelloFresh</option>
+                <option>Podimo</option>
+                <option>Factor</option>
+                <option>Mofibo</option>
+              </select>
+              <div
+                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+            </div>
+            <button
+              class="text-sm text-blue-600 hover:text-blue-800 mt-1"
+              onclick="toggleAssistantList()"
+            >
+              Edit Assistant List
+            </button>
+          </div>
+
+          <!-- Action Selection -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label
+                for="action"
+                class="block text-sm font-medium text-gray-700"
+                >Select Action</label
+              >
+              <div class="relative group">
+                <button
+                  class="text-blue-500 hover:text-blue-700 h-7 w-7 flex items-center justify-center border border-gray-300 rounded-md transition-colors"
+                  aria-label="Auto-detect action"
+                >
+                  <span class="text-lg">✨</span>
+                </button>
+                <div
+                  class="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none"
+                >
+                  Let AI guess the action
+                  <div
+                    class="absolute top-full right-2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="relative">
+              <select
+                id="action"
+                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+              >
+                <option>Accept</option>
+                <option>Reject</option>
+                <option>Negotiate</option>
+                <option>Help</option>
+              </select>
+              <div
+                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+            </div>
+            <button
+              class="text-sm text-blue-600 hover:text-blue-800 mt-1"
+              onclick="toggleActionList()"
+            >
+              Edit Action List
+            </button>
+          </div>
+
+          <!-- Email Preview -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Email Thread</label
+            >
+            <div
+              class="border border-gray-300 rounded-md p-3 max-h-64 overflow-y-auto bg-gray-50"
+            >
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-medium text-gray-900">
+                    John Doe &lt;john.doe@example.com&gt;
+                  </p>
+                  <p class="text-xs text-gray-500">To: me</p>
+                  <p class="text-sm font-medium text-gray-800 mt-1 mb-2">
+                    Subject: Meeting Follow-up
+                  </p>
+                  <p class="text-sm mt-1">Hi there,</p>
+                  <p class="text-sm">
+                    I wanted to follow up on our meeting yesterday. Could you
+                    please send me the report we discussed?
+                  </p>
+                  <p class="text-sm">Best regards,<br />John</p>
+                </div>
+                <div class="border-t border-gray-200 pt-2">
+                  <p class="text-sm font-medium text-gray-900">
+                    Me &lt;myemail@example.com&gt;
+                  </p>
+                  <p class="text-xs text-gray-500">To: John Doe</p>
+                  <p class="text-sm mt-1">Hi John,</p>
+                  <p class="text-sm">
+                    I'll work on getting that report to you.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-end">
+          <button
+            id="generateBtn"
+            class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="showScreen('screen2')"
+          >
+            Generate Response
+          </button>
+        </div>
+      </div>
+
+      <!-- Screen 2: Generated Response -->
+      <div id="screen2" class="screen">
+        <!-- Header -->
+        <div class="gmail-header px-4 py-3 flex justify-between items-center">
+          <h2 class="text-lg font-medium text-white">Generated Response</h2>
+          <div class="flex items-center space-x-2">
+            <button
+              id="keybindsBtn2"
+              class="text-white hover:text-gray-100"
+              onclick="toggleKeybinds()"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+            <button
+              id="settingsBtn2"
+              class="text-white hover:text-gray-100"
+              onclick="toggleSettings()"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+            <button class="text-white hover:text-gray-100">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-4">
+          <!-- Rich Text Editor -->
+          <div
+            class="border border-gray-300 rounded-md p-3 min-h-[200px] max-h-[300px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            contenteditable="true"
+          >
+            <p>Hi John,</p>
+            <p>
+              I've attached the report we discussed in our meeting yesterday.
+              Please let me know if you have any questions or need clarification
+              on any of the points.
+            </p>
+            <p>
+              The main findings are summarized on page 3, and the detailed
+              breakdown is available in the appendix.
+            </p>
+            <p>Best regards,<br />[Your Name]</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-between">
+          <button
+            id="backBtn"
+            class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="showScreen('screen1')"
+          >
+            Back
+          </button>
+          <div class="flex space-x-2">
+            <button
+              id="regenerateBtn"
+              class="text-blue-600 border border-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              onclick="toggleRegenerateModal()"
+            >
+              Regenerate
+            </button>
+            <button
+              id="insertBtn"
+              class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              Insert in Email
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="settings-modal">
+      <div class="settings-content">
+        <!-- Settings Header -->
+        <div
+          class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg"
+        >
+          <h2 class="text-lg font-medium text-white">Settings</h2>
+          <button
+            class="text-white hover:text-gray-100"
+            onclick="toggleSettings()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Settings Content -->
+        <div class="p-4 space-y-4">
+          <div>
+            <label
+              for="apiKey"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >ChatGPT API Key</label
+            >
+            <input
+              type="password"
+              id="apiKey"
+              class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+              placeholder="sk-..."
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Your API key is stored locally and never sent to our servers.
+            </p>
+          </div>
+        </div>
+
+        <!-- Settings Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
+          <button
+            id="saveSettingsBtn"
+            class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="saveSettings()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assistant List Modal -->
+    <div id="assistantListModal" class="settings-modal">
+      <div class="settings-content">
+        <!-- Assistant List Header -->
+        <div
+          class="gmail-header px-6 py-4 flex justify-between items-center rounded-t-lg"
+        >
+          <h2 class="text-xl font-medium text-white">Manage Assistants</h2>
+          <button
+            class="text-white hover:text-gray-100"
+            onclick="toggleAssistantList()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Assistant List Content -->
+        <div class="px-6 py-5 space-y-5">
+          <!-- Selection Buttons -->
+          <div class="flex space-x-6 mb-2">
+            <button
+              onclick="selectAllAssistants()"
+              class="text-base text-blue-600 hover:text-blue-800 flex items-center font-medium"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Select All
+            </button>
+            <button
+              onclick="deselectAllAssistants()"
+              class="text-base text-blue-600 hover:text-blue-800 flex items-center font-medium"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Deselect All
+            </button>
+          </div>
+
+          <div class="max-h-72 overflow-y-auto">
+            <div class="space-y-4">
+              <!-- Available Assistants -->
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-hellofresh"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  checked
+                />
+                <label
+                  for="assistant-hellofresh"
+                  class="text-base text-gray-700 font-medium"
+                  >HelloFresh</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-podimo"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  checked
+                />
+                <label
+                  for="assistant-podimo"
+                  class="text-base text-gray-700 font-medium"
+                  >Podimo</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-factor"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  checked
+                />
+                <label
+                  for="assistant-factor"
+                  class="text-base text-gray-700 font-medium"
+                  >Factor</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-mofibo"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  checked
+                />
+                <label
+                  for="assistant-mofibo"
+                  class="text-base text-gray-700 font-medium"
+                  >Mofibo</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-chatgpt4"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <label
+                  for="assistant-chatgpt4"
+                  class="text-base text-gray-700 font-medium"
+                  >ChatGPT 4</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-claude"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <label
+                  for="assistant-claude"
+                  class="text-base text-gray-700 font-medium"
+                  >Claude</label
+                >
+              </div>
+              <div class="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="assistant-gemini"
+                  class="assistant-checkbox w-5 h-5 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <label
+                  for="assistant-gemini"
+                  class="text-base text-gray-700 font-medium"
+                  >Gemini Pro</label
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assistant List Footer -->
+        <div
+          class="px-6 py-4 flex justify-between rounded-b-lg border-t border-gray-100"
+        >
+          <button
+            class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200"
+            onclick="toggleAssistantList()"
+          >
+            Cancel
+          </button>
+          <button
+            id="saveAssistantListBtn"
+            class="gmail-button px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm"
+            onclick="saveAssistantList()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action List Modal -->
+    <div id="actionListModal" class="settings-modal">
+      <div class="settings-content">
+        <!-- Action List Header -->
+        <div
+          class="gmail-header px-6 py-4 flex justify-between items-center rounded-t-lg"
+        >
+          <h2 class="text-xl font-medium text-white">Manage Actions</h2>
+          <button
+            class="text-white hover:text-gray-100"
+            onclick="toggleActionList()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading Spinner for Actions -->
+        <div id="actionListSpinner" class="spinner-container">
+          <div class="spinner"></div>
+        </div>
+
+        <!-- Action List Content -->
+        <div id="actionListContent" class="px-6 py-5 space-y-5 hidden-content">
+          <!-- Current Actions -->
+          <div class="max-h-56 overflow-y-auto">
+            <div class="space-y-4">
+              <!-- Available Actions -->
+              <div class="flex items-center justify-between px-3">
+                <div class="w-[85%]">
+                  <input
+                    type="text"
+                    value="Accept"
+                    class="action-input w-full pl-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+                  />
+                </div>
+                <button class="text-gray-400 hover:text-red-500 ml-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between px-3">
+                <div class="w-[85%]">
+                  <input
+                    type="text"
+                    value="Reject"
+                    class="action-input w-full pl-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+                  />
+                </div>
+                <button class="text-gray-400 hover:text-red-500 ml-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between px-3">
+                <div class="w-[85%]">
+                  <input
+                    type="text"
+                    value="Negotiate"
+                    class="action-input w-full pl-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+                  />
+                </div>
+                <button class="text-gray-400 hover:text-red-500 ml-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between px-3">
+                <div class="w-[85%]">
+                  <input
+                    type="text"
+                    value="Help"
+                    class="action-input w-full pl-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+                  />
+                </div>
+                <button class="text-gray-400 hover:text-red-500 ml-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add New Action Button -->
+          <div class="pt-4 flex justify-center">
+            <button
+              id="addActionBtn"
+              class="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              <span class="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-1"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                Add New Action
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Action List Footer -->
+        <div
+          class="px-6 py-4 flex justify-between rounded-b-lg border-t border-gray-100"
+        >
+          <button
+            class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200"
+            onclick="toggleActionList()"
+          >
+            Cancel
+          </button>
+          <button
+            id="saveActionListBtn"
+            class="gmail-button px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm"
+            onclick="saveActionList()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keybinds Modal -->
+    <div id="keybindsModal" class="settings-modal">
+      <div class="settings-content">
+        <!-- Keybinds Header -->
+        <div
+          class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg"
+        >
+          <h2 class="text-lg font-medium text-white">Keyboard Shortcuts</h2>
+          <button
+            class="text-white hover:text-gray-100"
+            onclick="toggleKeybinds()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Keybinds Content -->
+        <div class="p-4 space-y-4">
+          <div>
+            <label
+              for="quickReplyKeybind"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Quick Reply Shortcut</label
+            >
+            <div class="relative">
+              <div
+                id="keybindDisplay"
+                class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border bg-gray-50 font-mono"
+              >
+                Command + E
+              </div>
+              <button
+                id="changeKeybindBtn"
+                class="absolute inset-y-0 right-0 px-3 flex items-center bg-blue-50 text-blue-500 rounded-r-md border-l"
+              >
+                Change
+              </button>
+            </div>
+            <div id="recordingKeybind" class="hidden mt-2">
+              <div class="flex items-center space-x-1 text-sm text-gray-600">
+                <span>Press a key combination</span>
+                <button
+                  id="cancelRecording"
+                  class="text-red-500 hover:text-red-700 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <p class="mt-1 text-xs text-gray-500">
+              Set a keyboard shortcut to trigger quick reply generation
+            </p>
+          </div>
+        </div>
+
+        <!-- Keybinds Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
+          <button
+            id="saveKeybindsBtn"
+            class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="saveKeybinds()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Regenerate Modal -->
+    <div id="regenerateModal" class="settings-modal">
+      <div class="settings-content">
+        <!-- Regenerate Header -->
+        <div
+          class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg"
+        >
+          <h2 class="text-lg font-medium text-white">Regenerate Response</h2>
+          <button
+            class="text-white hover:text-gray-100"
+            onclick="toggleRegenerateModal()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Regenerate Content -->
+        <div class="p-4 space-y-4">
+          <div>
+            <label
+              for="regenerateComment"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Additional Instructions (optional)</label
+            >
+            <textarea
+              id="regenerateComment"
+              rows="4"
+              class="block w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border"
+              placeholder="Add specific instructions for regeneration, e.g. 'Make it more formal' or 'Include pricing details'"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Regenerate Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-between rounded-b-lg">
+          <button
+            class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="toggleRegenerateModal()"
+          >
+            Cancel
+          </button>
+          <button
+            id="submitRegenerateBtn"
+            class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            onclick="regenerateResponse()"
+          >
+            Regenerate
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      /* Additional styles for modern checkboxes */
+      .checkbox-container {
+        position: relative;
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        line-height: 0;
+      }
+
+      .assistant-checkbox:checked + .checkbox-icon {
+        display: block;
+      }
+
+      .checkbox-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+
+    <script>
+      function showScreen(screenId) {
+        // Hide all screens
+        document.querySelectorAll(".screen").forEach((screen) => {
+          screen.classList.remove("active");
+        });
+
+        // Show selected screen
+        document.getElementById(screenId).classList.add("active");
+      }
+
+      function toggleSettings() {
+        const settingsModal = document.getElementById("settingsModal");
+        settingsModal.classList.toggle("active");
+      }
+
+      function toggleAssistantList() {
+        const assistantListModal =
+          document.getElementById("assistantListModal");
+        assistantListModal.classList.toggle("active");
+      }
+
+      function toggleActionList() {
+        const actionListModal = document.getElementById("actionListModal");
+        const actionListContent = document.getElementById("actionListContent");
+        const actionListSpinner = document.getElementById("actionListSpinner");
+
+        // Hide spinner permanently
+        actionListSpinner.style.display = "none";
+
+        // If we're opening the modal
+        if (!actionListModal.classList.contains("active")) {
+          // Show the modal with content immediately
+          actionListModal.classList.add("active");
+          actionListContent.classList.remove("hidden-content");
+        } else {
+          // Just close the modal
+          actionListModal.classList.remove("active");
+        }
+      }
+
+      function saveSettings() {
+        const apiKey = document.getElementById("apiKey").value;
+        // Here you would save the API key to extension storage
+        console.log("API Key saved:", apiKey);
+        toggleSettings(); // Close settings after saving
+      }
+
+      function saveAssistantList() {
+        // Here you would save the selected assistants to extension storage
+        console.log("Assistant list saved");
+        toggleAssistantList(); // Close assistant list after saving
+      }
+
+      function saveActionList() {
+        // Here you would save the selected actions to extension storage
+        console.log("Action list saved");
+        toggleActionList(); // Close action list after saving
+      }
+
+      function selectAllAssistants() {
+        document.querySelectorAll(".assistant-checkbox").forEach((checkbox) => {
+          checkbox.checked = true;
+        });
+      }
+
+      function deselectAllAssistants() {
+        document.querySelectorAll(".assistant-checkbox").forEach((checkbox) => {
+          checkbox.checked = false;
+        });
+      }
+
+      function toggleKeybinds() {
+        const keybindsModal = document.getElementById("keybindsModal");
+        keybindsModal.classList.toggle("active");
+      }
+
+      function saveKeybinds() {
+        // Here you would save the keybinds to extension storage
+        console.log("Keybinds saved");
+        toggleKeybinds(); // Close keybinds modal after saving
+      }
+
+      function toggleRegenerateModal() {
+        const regenerateModal = document.getElementById("regenerateModal");
+        regenerateModal.classList.toggle("active");
+      }
+
+      function regenerateResponse() {
+        const comment = document.getElementById("regenerateComment").value;
+
+        // Log the comment but don't simulate API call
+        console.log("Regenerating response with comment:", comment);
+
+        // Close the modal immediately
+        toggleRegenerateModal();
+      }
+
+      // Add keybind functionality
+      document.addEventListener("DOMContentLoaded", function () {
+        const changeKeybindBtn = document.getElementById("changeKeybindBtn");
+        const keybindDisplay = document.getElementById("keybindDisplay");
+        const recordingKeybind = document.getElementById("recordingKeybind");
+        const cancelRecording = document.getElementById("cancelRecording");
+
+        let isRecording = false;
+        let currentKeybind = "Command + E";
+
+        if (changeKeybindBtn) {
+          changeKeybindBtn.addEventListener("click", function () {
+            if (!isRecording) {
+              isRecording = true;
+              recordingKeybind.classList.remove("hidden");
+              keybindDisplay.textContent = "Press keys...";
+              keybindDisplay.classList.add("bg-blue-50");
+
+              // Start listening for key combinations
+              document.addEventListener("keydown", recordKeybind);
+            }
+          });
+        }
+
+        if (cancelRecording) {
+          cancelRecording.addEventListener("click", function () {
+            stopRecording();
+          });
+        }
+
+        function recordKeybind(e) {
+          e.preventDefault();
+
+          // Build the key combination string
+          let keys = [];
+          if (e.ctrlKey) keys.push("Ctrl");
+          if (e.altKey) keys.push("Alt");
+          if (e.shiftKey) keys.push("Shift");
+          if (e.metaKey) keys.push("Meta");
+
+          // Add the main key if it's not a modifier
+          if (![16, 17, 18, 91, 92, 93].includes(e.keyCode)) {
+            keys.push(e.key.toUpperCase());
+          }
+
+          // Only accept valid combinations (with at least one modifier)
+          if (keys.length > 1) {
+            currentKeybind = keys.join(" + ");
+            stopRecording();
+          }
+        }
+
+        function stopRecording() {
+          isRecording = false;
+          document.removeEventListener("keydown", recordKeybind);
+          recordingKeybind.classList.add("hidden");
+          keybindDisplay.textContent = currentKeybind;
+          keybindDisplay.classList.remove("bg-blue-50");
+        }
+      });
+    </script>
+  </body>
+</html>
