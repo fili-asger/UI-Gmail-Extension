@@ -109,16 +109,6 @@ function openAssistantUI(composeWindow) {
   modalContainer.innerHTML = createAssistantUIHTML();
   modalContainer.style.display = "flex";
 
-  // Create settings modal if it doesn't exist
-  if (!document.getElementById("settings-modal")) {
-    const settingsModal = document.createElement("div");
-    settingsModal.id = "settings-modal";
-    settingsModal.className = "modal-container";
-    settingsModal.style.display = "none";
-    settingsModal.innerHTML = createSettingsModalHTML();
-    document.body.appendChild(settingsModal);
-  }
-
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
 }
@@ -335,11 +325,13 @@ function createSettingsModalHTML() {
       <!-- Header -->
       <div class="gmail-header">
         <h2>Settings</h2>
-        <button id="closeSettingsBtn" class="close-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>
-        </button>
+        <div class="flex items-center">
+          <button id="closeSettingsBtn" class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Content -->
@@ -364,7 +356,6 @@ function createSettingsModalHTML() {
 // Set up event handlers for the UI
 function setupUIEventHandlers(composeWindow, emailThread) {
   const modal = document.getElementById("gmail-assistant-modal");
-  const settingsModal = document.getElementById("settings-modal");
 
   // Function to show a specific screen
   function showScreen(screenId) {
@@ -390,49 +381,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       e.stopPropagation();
       console.log("Settings button clicked");
 
-      // Make sure settings modal exists
-      let settingsModal = document.getElementById("settings-modal");
-      if (!settingsModal) {
-        console.log("Creating settings modal");
-        settingsModal = document.createElement("div");
-        settingsModal.id = "settings-modal";
-        settingsModal.className = "modal-container";
-        settingsModal.style.display = "none";
-        settingsModal.innerHTML = createSettingsModalHTML();
-        document.body.appendChild(settingsModal);
-
-        // Set up settings modal event handlers
-        const closeSettingsBtn =
-          settingsModal.querySelector("#closeSettingsBtn");
-        if (closeSettingsBtn) {
-          closeSettingsBtn.addEventListener("click", () => {
-            settingsModal.style.display = "none";
-          });
-        }
-
-        const saveSettingsBtn = settingsModal.querySelector("#saveSettingsBtn");
-        if (saveSettingsBtn) {
-          saveSettingsBtn.addEventListener("click", () => {
-            const apiKey = settingsModal.querySelector("#apiKey").value;
-
-            // Save API key to Chrome storage
-            chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-              console.log("API key saved");
-              settingsModal.style.display = "none";
-            });
-          });
-        }
-      }
-
-      // Show settings modal
-      settingsModal.style.display = "flex";
-
-      // Load saved API key if exists
-      chrome.storage.local.get(["openai_api_key"], function (result) {
-        if (result.openai_api_key) {
-          settingsModal.querySelector("#apiKey").value = result.openai_api_key;
-        }
-      });
+      // Create and show settings modal directly
+      showSettingsModal();
     });
   });
 
@@ -576,11 +526,11 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editAssistantListBtn = modal.querySelector("#editAssistantListBtn");
   if (editAssistantListBtn) {
     editAssistantListBtn.addEventListener("click", () => {
-      // Open options page to the assistant management section
-      chrome.runtime.sendMessage({
-        action: "openOptionsPage",
-        section: "assistants",
-      });
+      // Show assistant management UI in main modal
+      // This would be implemented later
+      alert(
+        "Assistant management will be added to the main modal in a future update"
+      );
     });
   }
 
@@ -588,11 +538,11 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editActionListBtn = modal.querySelector("#editActionListBtn");
   if (editActionListBtn) {
     editActionListBtn.addEventListener("click", () => {
-      // Open options page to the action management section
-      chrome.runtime.sendMessage({
-        action: "openOptionsPage",
-        section: "actions",
-      });
+      // Show action management UI in main modal
+      // This would be implemented later
+      alert(
+        "Action management will be added to the main modal in a future update"
+      );
     });
   }
 }
@@ -682,7 +632,7 @@ function initAssistantUI() {
   // Settings button event
   document.addEventListener("click", function (e) {
     if (e.target.id === "settingsBtn" || e.target.id === "settingsBtn2") {
-      openSettings();
+      showSettingsModal();
     }
   });
 
@@ -696,14 +646,20 @@ function initAssistantUI() {
   // Edit assistant list button event
   document.addEventListener("click", function (e) {
     if (e.target.id === "editAssistantListBtn") {
-      editAssistantList();
+      // Will be handled in the main modal
+      alert(
+        "Assistant management will be added directly to the extension in a future update"
+      );
     }
   });
 
   // Edit action list button event
   document.addEventListener("click", function (e) {
     if (e.target.id === "editActionListBtn") {
-      editActionList();
+      // Will be handled in the main modal
+      alert(
+        "Action management will be added directly to the extension in a future update"
+      );
     }
   });
 
@@ -890,7 +846,8 @@ function regenerateResponse() {
 
 // Function to open settings
 function openSettings() {
-  chrome.runtime.sendMessage({ action: "openOptionsPage" });
+  // Replace with direct modal function instead of options page
+  showSettingsModal();
 }
 
 // Function to toggle desktop view
@@ -901,12 +858,18 @@ function toggleDesktopView() {
 
 // Function to edit assistant list
 function editAssistantList() {
-  chrome.runtime.sendMessage({ action: "openOptionsPage", tab: "assistants" });
+  // Will be implemented in the main modal
+  alert(
+    "Assistant management will be added directly to the extension in a future update"
+  );
 }
 
 // Function to edit action list
 function editActionList() {
-  chrome.runtime.sendMessage({ action: "openOptionsPage", tab: "actions" });
+  // Will be implemented in the main modal
+  alert(
+    "Action management will be added directly to the extension in a future update"
+  );
 }
 
 // Function to auto-detect assistant
@@ -930,5 +893,58 @@ function autoDetectAction() {
     const options = selectElement.options;
     const randomIndex = Math.floor(Math.random() * options.length);
     selectElement.selectedIndex = randomIndex;
+  }
+}
+
+// Function to show the settings modal
+function showSettingsModal() {
+  console.log("Showing settings modal");
+
+  // Remove any existing settings modal
+  let oldModal = document.getElementById("settings-modal");
+  if (oldModal) {
+    document.body.removeChild(oldModal);
+  }
+
+  // Create new settings modal
+  const settingsModal = document.createElement("div");
+  settingsModal.id = "settings-modal";
+  settingsModal.className = "modal-container";
+  settingsModal.innerHTML = createSettingsModalHTML();
+  document.body.appendChild(settingsModal);
+
+  // Show the modal
+  settingsModal.style.display = "flex";
+
+  // Load saved API key if exists
+  chrome.storage.local.get(["openai_api_key"], function (result) {
+    if (result.openai_api_key) {
+      const apiKeyInput = settingsModal.querySelector("#apiKey");
+      if (apiKeyInput) {
+        apiKeyInput.value = result.openai_api_key;
+      }
+    }
+  });
+
+  // Setup close button
+  const closeBtn = settingsModal.querySelector("#closeSettingsBtn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      settingsModal.style.display = "none";
+    });
+  }
+
+  // Setup save button
+  const saveBtn = settingsModal.querySelector("#saveSettingsBtn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      const apiKey = settingsModal.querySelector("#apiKey").value;
+
+      // Save API key to storage
+      chrome.storage.local.set({ openai_api_key: apiKey }, function () {
+        console.log("API key saved");
+        settingsModal.style.display = "none";
+      });
+    });
   }
 }
