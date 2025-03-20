@@ -67,10 +67,10 @@ html {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
-  margin-left: 10px;
-  width: 30px;
-  height: 30px;
+  padding: 4px;
+  margin-left: 16px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -86,13 +86,14 @@ html {
   border: none;
   color: white;
   cursor: pointer;
-  padding: 8px;
+  padding: 4px;
   line-height: 1;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: 16px;
 }
 
 .close-btn:hover {
