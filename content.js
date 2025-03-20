@@ -890,122 +890,87 @@ function autoDetectAction() {
 function showSettingsModal() {
   console.log("showSettingsModal called");
 
-  try {
-    // Create settings modal HTML directly following UI.html pattern
-    const settingsModalHTML = `
-      <div id="settings-modal" class="settings-modal active">
-        <div class="settings-content">
-          <!-- Settings Header -->
-          <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
-            <h2>Settings</h2>
-            <div class="flex items-center">
-              <button id="closeSettingsBtn" class="close-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
+  // Remove any existing settings modal first
+  const existingModal = document.getElementById("settings-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
 
-          <!-- Settings Content -->
-          <div class="p-4 space-y-4">
-            <div>
-              <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
-              <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
-              <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
-            </div>
-          </div>
+  // Create settings modal element directly
+  const settingsModal = document.createElement("div");
+  settingsModal.id = "settings-modal";
+  settingsModal.className = "settings-modal active";
 
-          <!-- Settings Footer -->
-          <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
-            <button id="saveSettingsBtn" class="gmail-button">
-              Save
-            </button>
-          </div>
+  // Create the content
+  settingsModal.innerHTML = `
+    <div class="settings-content">
+      <!-- Settings Header -->
+      <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
+        <h2>Settings</h2>
+        <div class="flex items-center">
+          <button id="closeSettingsBtn" class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
         </div>
       </div>
-    `;
 
-    // Remove any existing settings modal
-    const existingModal = document.getElementById("settings-modal");
-    if (existingModal) {
-      console.log("Removing existing settings modal");
-      existingModal.remove();
+      <!-- Settings Content -->
+      <div class="p-4 space-y-4">
+        <div>
+          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
+          <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
+          <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
+        </div>
+      </div>
+
+      <!-- Settings Footer -->
+      <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
+        <button id="saveSettingsBtn" class="gmail-button">
+          Save
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Add the modal to document
+  document.body.appendChild(settingsModal);
+
+  console.log("Settings modal added to DOM:", settingsModal);
+
+  // Load API key from storage immediately
+  chrome.storage.local.get(["openai_api_key"], function (result) {
+    const apiKeyInput = document.getElementById("apiKey");
+    if (apiKeyInput && result.openai_api_key) {
+      apiKeyInput.value = result.openai_api_key;
     }
+  });
 
-    // Create a container for the settings modal
-    const div = document.createElement("div");
-    div.innerHTML = settingsModalHTML;
+  // Set up event handlers directly
+  const closeBtn = document.getElementById("closeSettingsBtn");
+  if (closeBtn) {
+    closeBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const modal = document.getElementById("settings-modal");
+      if (modal) modal.remove();
+    };
+  }
 
-    // Add the modal to the document
-    console.log("Adding new settings modal to document");
-    document.body.appendChild(div.firstElementChild);
+  const saveBtn = document.getElementById("saveSettingsBtn");
+  if (saveBtn) {
+    saveBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const apiKey = document.getElementById("apiKey").value;
 
-    // Important: use a short timeout to ensure the modal is in the DOM
-    setTimeout(() => {
-      const settingsModal = document.getElementById("settings-modal");
-      const closeBtn = document.getElementById("closeSettingsBtn");
-      const saveBtn = document.getElementById("saveSettingsBtn");
-
-      console.log("Settings modal element:", settingsModal);
-      console.log("Close button element:", closeBtn);
-      console.log("Save button element:", saveBtn);
-
-      if (settingsModal) {
-        settingsModal.style.display = "flex";
-        settingsModal.style.zIndex = "10000";
-
-        // Load saved API key if it exists
-        chrome.storage.local.get(["openai_api_key"], function (result) {
-          console.log(
-            "Retrieved API key from storage:",
-            result.openai_api_key ? "Yes (key exists)" : "No"
-          );
-          const apiKeyInput = document.getElementById("apiKey");
-          if (apiKeyInput && result.openai_api_key) {
-            apiKeyInput.value = result.openai_api_key;
-          }
-        });
-      }
-
-      // Add event listener to close button
-      if (closeBtn) {
-        // Remove any existing event listeners
-        closeBtn.replaceWith(closeBtn.cloneNode(true));
-        const newCloseBtn = document.getElementById("closeSettingsBtn");
-
-        newCloseBtn.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log("Close button clicked");
-          const modal = document.getElementById("settings-modal");
-          if (modal) modal.remove();
-        });
-      }
-
-      // Add event listener to save button
-      if (saveBtn) {
-        // Remove any existing event listeners
-        saveBtn.replaceWith(saveBtn.cloneNode(true));
-        const newSaveBtn = document.getElementById("saveSettingsBtn");
-
-        newSaveBtn.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log("Save button clicked");
-          const apiKey = document.getElementById("apiKey").value;
-
-          // Save API key to storage
-          chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-            console.log("API key saved to storage");
-            const modal = document.getElementById("settings-modal");
-            if (modal) modal.remove();
-          });
-        });
-      }
-    }, 50);
-  } catch (error) {
-    console.error("Error showing settings modal:", error);
+      chrome.storage.local.set({ openai_api_key: apiKey }, function () {
+        console.log("API key saved to storage");
+        const modal = document.getElementById("settings-modal");
+        if (modal) modal.remove();
+      });
+    };
   }
 }
 
@@ -1015,15 +980,22 @@ function setupSettingsButtonEvents(modal) {
 
   const settingsButtons = modal.querySelectorAll("#settingsBtn, #settingsBtn2");
   settingsButtons.forEach((btn) => {
-    // Remove any existing listeners by cloning and replacing
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-
-    newBtn.addEventListener("click", function (e) {
+    // Use onclick instead of addEventListener for more direct binding
+    btn.onclick = function (e) {
       e.preventDefault();
       e.stopPropagation();
-      console.log(`Settings button clicked: ${this.id}`);
+      console.log("Settings button clicked:", this.id);
       showSettingsModal();
-    });
+    };
+  });
+
+  // Also bind directly to settings button in the DOM
+  document.querySelectorAll("#settingsBtn, #settingsBtn2").forEach((btn) => {
+    btn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("Settings button clicked (global):", this.id);
+      showSettingsModal();
+    };
   });
 }
