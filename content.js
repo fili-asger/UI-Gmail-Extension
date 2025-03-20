@@ -67,9 +67,6 @@ function injectAssistantButton() {
 function insertAssistantButton(toolbar, composeWindow) {
   console.log("insertAssistantButton called", toolbar);
 
-  // Hack: add direct button handlers on each attempt
-  setTimeout(addDirectButtonHandler, 500);
-
   // Find the attachment icons container
   const attachmentsSection = toolbar.querySelector(".a8X");
 
