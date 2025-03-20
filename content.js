@@ -380,10 +380,28 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       e.preventDefault();
       e.stopPropagation();
       console.log("Settings button clicked");
+      console.log("Button ID:", e.currentTarget.id);
 
-      // Create and show settings modal directly
+      // Direct approach to showing the settings modal
       showSettingsModal();
     });
+  });
+
+  // Global event delegate for settings buttons
+  document.addEventListener("click", function (event) {
+    const target = event.target;
+    // Check if clicked element or its parent has the settings button ID
+    if (
+      target.id === "settingsBtn" ||
+      target.id === "settingsBtn2" ||
+      target.closest("#settingsBtn") ||
+      target.closest("#settingsBtn2")
+    ) {
+      console.log("Settings button clicked through global delegate");
+      event.preventDefault();
+      event.stopPropagation();
+      showSettingsModal();
+    }
   });
 
   // Populate email preview
@@ -898,52 +916,111 @@ function autoDetectAction() {
 
 // Function to show the settings modal
 function showSettingsModal() {
-  console.log("Showing settings modal");
+  console.log("showSettingsModal called");
+
+  // Create settings modal HTML directly following UI.html pattern
+  const settingsModalHTML = `
+    <div id="settings-modal" class="settings-modal active" style="display: flex;">
+      <div class="settings-content">
+        <!-- Settings Header -->
+        <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
+          <h2>Settings</h2>
+          <div class="flex items-center">
+            <button id="closeSettingsBtn" class="close-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Settings Content -->
+        <div class="p-4 space-y-4">
+          <div>
+            <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
+            <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
+            <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
+          </div>
+        </div>
+
+        <!-- Settings Footer -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
+          <button id="saveSettingsBtn" class="gmail-button">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 
   // Remove any existing settings modal
-  let oldModal = document.getElementById("settings-modal");
-  if (oldModal) {
-    document.body.removeChild(oldModal);
+  const existingModal = document.getElementById("settings-modal");
+  if (existingModal) {
+    console.log("Removing existing settings modal");
+    existingModal.remove();
   }
 
-  // Create new settings modal
-  const settingsModal = document.createElement("div");
-  settingsModal.id = "settings-modal";
-  settingsModal.className = "modal-container";
-  settingsModal.innerHTML = createSettingsModalHTML();
-  document.body.appendChild(settingsModal);
+  // Create a container for the settings modal
+  const modalContainer = document.createElement("div");
+  modalContainer.innerHTML = settingsModalHTML;
 
-  // Show the modal
-  settingsModal.style.display = "flex";
+  // Add the modal to the document
+  console.log("Adding new settings modal to document");
+  document.body.appendChild(modalContainer.firstElementChild);
 
-  // Load saved API key if exists
+  // Get references to the modal and buttons
+  const settingsModal = document.getElementById("settings-modal");
+  const closeBtn = document.getElementById("closeSettingsBtn");
+  const saveBtn = document.getElementById("saveSettingsBtn");
+
+  console.log("Settings modal element:", settingsModal);
+  console.log("Close button element:", closeBtn);
+  console.log("Save button element:", saveBtn);
+
+  // Add styles to make the modal visible
+  if (settingsModal) {
+    settingsModal.style.position = "fixed";
+    settingsModal.style.top = "0";
+    settingsModal.style.left = "0";
+    settingsModal.style.right = "0";
+    settingsModal.style.bottom = "0";
+    settingsModal.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    settingsModal.style.display = "flex";
+    settingsModal.style.justifyContent = "center";
+    settingsModal.style.alignItems = "center";
+    settingsModal.style.zIndex = "10000";
+  }
+
+  // Load saved API key if it exists
   chrome.storage.local.get(["openai_api_key"], function (result) {
-    if (result.openai_api_key) {
-      const apiKeyInput = settingsModal.querySelector("#apiKey");
-      if (apiKeyInput) {
-        apiKeyInput.value = result.openai_api_key;
-      }
+    console.log(
+      "Retrieved API key from storage:",
+      result.openai_api_key ? "Yes (key exists)" : "No"
+    );
+    const apiKeyInput = document.getElementById("apiKey");
+    if (apiKeyInput && result.openai_api_key) {
+      apiKeyInput.value = result.openai_api_key;
     }
   });
 
-  // Setup close button
-  const closeBtn = settingsModal.querySelector("#closeSettingsBtn");
+  // Add event listener to close button
   if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      settingsModal.style.display = "none";
+    closeBtn.addEventListener("click", function () {
+      console.log("Close button clicked");
+      settingsModal.remove();
     });
   }
 
-  // Setup save button
-  const saveBtn = settingsModal.querySelector("#saveSettingsBtn");
+  // Add event listener to save button
   if (saveBtn) {
-    saveBtn.addEventListener("click", () => {
-      const apiKey = settingsModal.querySelector("#apiKey").value;
+    saveBtn.addEventListener("click", function () {
+      console.log("Save button clicked");
+      const apiKey = document.getElementById("apiKey").value;
 
       // Save API key to storage
       chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-        console.log("API key saved");
-        settingsModal.style.display = "none";
+        console.log("API key saved to storage");
+        settingsModal.remove();
       });
     });
   }

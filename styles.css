@@ -20,17 +20,33 @@ html {
   z-index: 9999;
 }
 
-#settings-modal {
+/* Settings Modal */
+.settings-modal {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: none;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 50;
   justify-content: center;
   align-items: center;
-  z-index: 10000; /* Higher than regular modal */
+  display: none;
+}
+
+.settings-modal.active {
+  display: flex;
+}
+
+.settings-content {
+  background-color: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-wrapper {
