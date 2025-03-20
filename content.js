@@ -385,7 +385,45 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   // Settings buttons
   const settingsButtons = modal.querySelectorAll("#settingsBtn, #settingsBtn2");
   settingsButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("Settings button clicked");
+
+      // Make sure settings modal exists
+      let settingsModal = document.getElementById("settings-modal");
+      if (!settingsModal) {
+        console.log("Creating settings modal");
+        settingsModal = document.createElement("div");
+        settingsModal.id = "settings-modal";
+        settingsModal.className = "modal-container";
+        settingsModal.style.display = "none";
+        settingsModal.innerHTML = createSettingsModalHTML();
+        document.body.appendChild(settingsModal);
+
+        // Set up settings modal event handlers
+        const closeSettingsBtn =
+          settingsModal.querySelector("#closeSettingsBtn");
+        if (closeSettingsBtn) {
+          closeSettingsBtn.addEventListener("click", () => {
+            settingsModal.style.display = "none";
+          });
+        }
+
+        const saveSettingsBtn = settingsModal.querySelector("#saveSettingsBtn");
+        if (saveSettingsBtn) {
+          saveSettingsBtn.addEventListener("click", () => {
+            const apiKey = settingsModal.querySelector("#apiKey").value;
+
+            // Save API key to Chrome storage
+            chrome.storage.local.set({ openai_api_key: apiKey }, function () {
+              console.log("API key saved");
+              settingsModal.style.display = "none";
+            });
+          });
+        }
+      }
+
       // Show settings modal
       settingsModal.style.display = "flex";
 
@@ -397,28 +435,6 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       });
     });
   });
-
-  // Close settings modal
-  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-  if (closeSettingsBtn) {
-    closeSettingsBtn.addEventListener("click", () => {
-      settingsModal.style.display = "none";
-    });
-  }
-
-  // Save settings
-  const saveSettingsBtn = document.getElementById("saveSettingsBtn");
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener("click", () => {
-      const apiKey = document.getElementById("apiKey").value;
-
-      // Save API key to Chrome storage
-      chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-        console.log("API key saved");
-        settingsModal.style.display = "none";
-      });
-    });
-  }
 
   // Populate email preview
   const emailPreview = modal.querySelector("#emailPreview");
