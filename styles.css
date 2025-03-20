@@ -67,10 +67,10 @@ html {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 6px;
-  margin-left: 8px;
-  width: 24px;
-  height: 24px;
+  padding: 8px;
+  margin-left: 10px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -86,10 +86,10 @@ html {
   border: none;
   color: white;
   cursor: pointer;
-  padding: 6px;
+  padding: 8px;
   line-height: 1;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
