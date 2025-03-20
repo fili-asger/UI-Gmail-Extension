@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gmail Assistant Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Gmail Assistant Settings</h1>
+        <p>Configure your Gmail Assistant extension preferences</p>
+      </header>
+
+      <main>
+        <!-- API Key Settings -->
+        <section class="settings-section">
+          <h2>API Key</h2>
+          <p class="section-desc">
+            Enter your OpenAI API key to enable response generation
+          </p>
+
+          <div class="form-group">
+            <label for="apiKey">OpenAI API Key</label>
+            <div class="input-with-button">
+              <input
+                type="password"
+                id="apiKey"
+                placeholder="sk-..."
+                autocomplete="off"
+              />
+              <button id="toggleApiVisibility" class="icon-button">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <p class="field-desc">
+              Your API key is stored locally and never sent to anyone other than
+              OpenAI
+            </p>
+          </div>
+        </section>
+
+        <!-- Assistant Management -->
+        <section class="settings-section">
+          <h2>Assistant Management</h2>
+          <p class="section-desc">Manage available AI assistants</p>
+
+          <div class="assistant-list" id="assistantList">
+            <!-- Assistants will be populated here via JavaScript -->
+            <div class="loading">Loading assistants...</div>
+          </div>
+
+          <div class="form-group">
+            <label for="newAssistant">Add New Assistant</label>
+            <div class="input-with-button">
+              <input
+                type="text"
+                id="newAssistant"
+                placeholder="Enter assistant name"
+              />
+              <button id="addAssistantBtn" class="icon-button">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Action Management -->
+        <section class="settings-section">
+          <h2>Action Management</h2>
+          <p class="section-desc">
+            Manage available actions for email responses
+          </p>
+
+          <div class="action-list" id="actionList">
+            <!-- Actions will be populated here via JavaScript -->
+            <div class="loading">Loading actions...</div>
+          </div>
+
+          <div class="form-group">
+            <label for="newAction">Add New Action</label>
+            <div class="input-with-button">
+              <input
+                type="text"
+                id="newAction"
+                placeholder="Enter action name"
+              />
+              <button id="addActionBtn" class="icon-button">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Keyboard Shortcuts -->
+        <section class="settings-section">
+          <h2>Keyboard Shortcuts</h2>
+          <p class="section-desc">
+            Configure keyboard shortcuts for quick access
+          </p>
+
+          <div class="form-group">
+            <label for="quickReplyShortcut">Quick Reply Shortcut</label>
+            <div class="shortcut-input" id="quickReplyShortcut" tabindex="0">
+              <span id="shortcutDisplay">Cmd+E</span>
+              <button class="edit-button">Edit</button>
+            </div>
+            <p class="field-desc">
+              Click 'Edit' and press your desired key combination
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div class="button-container">
+          <button id="saveBtn" class="primary-button">Save Changes</button>
+          <button id="resetBtn" class="secondary-button">
+            Reset to Defaults
+          </button>
+        </div>
+        <p class="version">Gmail Assistant v1.0.0</p>
+      </footer>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

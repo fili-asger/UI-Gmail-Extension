@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gmail Assistant</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-container">
+      <header class="popup-header">
+        <h1>Gmail Assistant</h1>
+      </header>
+
+      <div class="popup-content">
+        <div class="status-container">
+          <div id="status-indicator" class="status-indicator"></div>
+          <p id="status-text">Ready to assist with your emails</p>
+        </div>
+
+        <div class="action-buttons">
+          <button id="openAssistantBtn" class="primary-btn">
+            Open Assistant
+          </button>
+          <button id="openOptionsBtn" class="secondary-btn">Settings</button>
+        </div>
+
+        <div class="shortcuts-section">
+          <h2>Keyboard Shortcuts</h2>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Cmd+E</span>
+            <span class="shortcut-desc">Quick Reply</span>
+          </div>
+        </div>
+      </div>
+
+      <footer class="popup-footer">
+        <p>Using OpenAI API</p>
+      </footer>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
