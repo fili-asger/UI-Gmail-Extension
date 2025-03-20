@@ -10,22 +10,20 @@
 .assistant-btn {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  background-color: #1a73e8;
+  border-radius: 0;
+  background-color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="%23444" stroke-width="1.5"><path d="M10 1v2M10 17v2M1 10h2M17 10h2M3 3l1.5 1.5M15 15l1.5 1.5M3 17l1.5-1.5M15 5l1.5-1.5M7 12a3 3 0 100-6 3 3 0 000 6z"/><path d="M13 8c0 3-1.8 6-3 6s-3-3-3-6 1.8-6 3-6 3 3 3 6z"/></svg>');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 20px;
 }
 
 .assistant-btn:hover {
-  background-color: #1765cc;
-}
-
-.assistant-btn img {
-  width: 16px;
-  height: 16px;
+  background-color: #f1f3f4;
 }
 
 /* Modal */
@@ -40,6 +38,7 @@
   display: none;
   justify-content: center;
   align-items: center;
+  font-family: "Roboto", sans-serif;
 }
 
 .modal-wrapper {
@@ -59,7 +58,7 @@
   height: 100%;
 }
 
-.modal-header {
+.gmail-header {
   background-color: #1a73e8;
   color: white;
   padding: 12px 16px;
@@ -68,7 +67,8 @@
   align-items: center;
 }
 
-.modal-header h2 {
+.modal-header h2,
+.gmail-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 500;
@@ -90,6 +90,15 @@
   flex-grow: 1;
 }
 
+/* Screen Management */
+.screen {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
 /* Form Elements */
 .form-group {
   margin-bottom: 16px;
@@ -103,7 +112,8 @@
   color: #444;
 }
 
-.form-select {
+.form-select,
+select {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -116,7 +126,8 @@
   background-size: 10px;
 }
 
-.form-button {
+.form-button,
+.gmail-button {
   background-color: #1a73e8;
   color: white;
   border: none;
@@ -128,11 +139,166 @@
   transition: background-color 0.2s;
 }
 
-.form-button:hover {
+.form-button:hover,
+.gmail-button:hover {
   background-color: #1765cc;
 }
 
+/* TailwindCSS-like utilities */
+.flex {
+  display: flex;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.space-x-2 > * + * {
+  margin-left: 0.5rem;
+}
+
+.space-y-4 > * + * {
+  margin-top: 1rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.py-3 {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.text-white {
+  color: white;
+}
+
+.text-gray-700 {
+  color: #374151;
+}
+
+.text-blue-600 {
+  color: #2563eb;
+}
+
+.hover\:text-gray-100:hover {
+  color: #f3f4f6;
+}
+
+.hover\:text-blue-800:hover {
+  color: #1e40af;
+}
+
+.bg-white {
+  background-color: white;
+}
+
+.bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+.hover\:bg-gray-50:hover {
+  background-color: #f9fafb;
+}
+
+.hover\:bg-blue-50:hover {
+  background-color: #eff6ff;
+}
+
+.border {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.border-gray-300 {
+  border-color: #d1d5db;
+}
+
+.border-blue-600 {
+  border-color: #2563eb;
+}
+
+.rounded-md {
+  border-radius: 0.375rem;
+}
+
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.min-h-\[200px\] {
+  min-height: 200px;
+}
+
+.max-h-\[300px\] {
+  max-height: 300px;
+}
+
+.max-h-64 {
+  max-height: 16rem;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.focus\:outline-none:focus {
+  outline: none;
+}
+
+.focus\:ring-2:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.focus\:ring-blue-500:focus {
+  --tw-ring-color: #3b82f6;
+}
+
+.focus\:border-blue-500:focus {
+  border-color: #3b82f6;
+}
+
+.transition-colors {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
 /* Spinner */
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 200px;
+}
+
 .spinner {
   width: 40px;
   height: 40px;
