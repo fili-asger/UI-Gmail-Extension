@@ -18,15 +18,40 @@ document.addEventListener("DOMContentLoaded", function () {
   // Default settings
   const defaultSettings = {
     apiKey: "",
-    assistants: ["HelloFresh", "Podimo", "Factor", "Mofibo"],
-    actions: ["Accept", "Reject", "Negotiate", "Help"],
-    shortcut: "Cmd+E",
+    assistants: [
+      {
+        id: "HelloFresh",
+        name: "HelloFresh",
+        description: "Customer relationship / refunds",
+      },
+      { id: "Podimo", name: "Podimo", description: "Subscription questions" },
+      { id: "Factor", name: "Factor", description: "Order management" },
+      { id: "Mofibo", name: "Mofibo", description: "Technical support" },
+    ],
+    actions: [
+      { id: "Accept", name: "Accept", description: "Accept customer request" },
+      {
+        id: "Reject",
+        name: "Reject",
+        description: "Reject customer request politely",
+      },
+      {
+        id: "Negotiate",
+        name: "Negotiate",
+        description: "Offer alternative solution",
+      },
+      { id: "Help", name: "Help", description: "Provide technical support" },
+    ],
+    shortcuts: {
+      openAssistant: "Alt+A",
+      generateResponse: "Alt+G",
+    },
   };
 
   // Load settings from storage
   function loadSettings() {
     chrome.storage.sync.get(
-      ["apiKey", "assistants", "actions", "shortcut"],
+      ["apiKey", "assistants", "actions", "shortcuts"],
       function (result) {
         // API Key
         if (result.apiKey) {
@@ -47,11 +72,13 @@ document.addEventListener("DOMContentLoaded", function () {
           renderActionList(defaultSettings.actions);
         }
 
-        // Shortcut
-        if (result.shortcut) {
-          shortcutDisplay.textContent = result.shortcut;
+        // Shortcuts
+        if (result.shortcuts) {
+          shortcuts = result.shortcuts;
+          renderShortcuts(result.shortcuts);
         } else {
-          shortcutDisplay.textContent = defaultSettings.shortcut;
+          shortcuts = defaultSettings.shortcuts;
+          renderShortcuts(defaultSettings.shortcuts);
         }
       }
     );
@@ -61,140 +88,248 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderAssistantList(assistants) {
     assistantList.innerHTML = "";
 
-    assistants.forEach((assistant) => {
+    assistants.forEach((assistant, index) => {
       const item = document.createElement("div");
       item.className = "assistant-item";
       item.innerHTML = `
-        <span>${assistant}</span>
-        <button class="delete-button" data-assistant="${assistant}">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6L6 18M6 6l12 12"></path>
-          </svg>
-        </button>
+        <div class="list-item-content">
+          <div>
+            <strong>${assistant.name}</strong>
+            <p class="text-gray-500">${assistant.description}</p>
+          </div>
+          <div class="list-item-actions">
+            <button class="edit-btn" data-index="${index}">Edit</button>
+            <button class="delete-btn" data-index="${index}">Delete</button>
+          </div>
+        </div>
       `;
       assistantList.appendChild(item);
-    });
 
-    // Add event listeners to delete buttons
-    document
-      .querySelectorAll(".delete-button[data-assistant]")
-      .forEach((button) => {
-        button.addEventListener("click", function () {
-          const assistantToDelete = this.getAttribute("data-assistant");
-          deleteAssistant(assistantToDelete);
-        });
+      // Add event listeners to delete buttons
+      item.querySelector(".delete-btn").addEventListener("click", function () {
+        deleteAssistant(index);
       });
+
+      // Add event listeners to edit buttons
+      item.querySelector(".edit-btn").addEventListener("click", function () {
+        editAssistant(index);
+      });
+    });
   }
 
   // Render action list
   function renderActionList(actions) {
     actionList.innerHTML = "";
 
-    actions.forEach((action) => {
+    actions.forEach((action, index) => {
       const item = document.createElement("div");
       item.className = "action-item";
       item.innerHTML = `
-        <span>${action}</span>
-        <button class="delete-button" data-action="${action}">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6L6 18M6 6l12 12"></path>
-          </svg>
-        </button>
+        <div class="list-item-content">
+          <div>
+            <strong>${action.name}</strong>
+            <p class="text-gray-500">${action.description}</p>
+          </div>
+          <div class="list-item-actions">
+            <button class="edit-btn" data-index="${index}">Edit</button>
+            <button class="delete-btn" data-index="${index}">Delete</button>
+          </div>
+        </div>
       `;
       actionList.appendChild(item);
-    });
 
-    // Add event listeners to delete buttons
-    document
-      .querySelectorAll(".delete-button[data-action]")
-      .forEach((button) => {
-        button.addEventListener("click", function () {
-          const actionToDelete = this.getAttribute("data-action");
-          deleteAction(actionToDelete);
-        });
+      // Add event listeners to delete buttons
+      item.querySelector(".delete-btn").addEventListener("click", function () {
+        deleteAction(index);
       });
+
+      // Add event listeners to edit buttons
+      item.querySelector(".edit-btn").addEventListener("click", function () {
+        editAction(index);
+      });
+    });
   }
 
   // Add new assistant
   function addAssistant() {
-    const newAssistant = newAssistantInput.value.trim();
+    const name = prompt("Enter assistant name:");
+    if (!name) return;
 
-    if (!newAssistant) return;
+    const description = prompt("Enter assistant description:");
+    if (!description) return;
 
-    chrome.storage.sync.get("assistants", function (result) {
-      let assistants = result.assistants || defaultSettings.assistants;
+    chrome.storage.sync.get(
+      { assistants: defaultSettings.assistants },
+      function (data) {
+        const assistants = data.assistants;
 
-      // Add new assistant if it doesn't exist
-      if (!assistants.includes(newAssistant)) {
-        assistants.push(newAssistant);
-        chrome.storage.sync.set({ assistants }, function () {
-          renderAssistantList(assistants);
-          newAssistantInput.value = "";
+        // Generate a unique ID
+        const id = name.replace(/\s+/g, "");
+
+        // Add new assistant
+        assistants.push({
+          id: id,
+          name: name,
+          description: description,
         });
-      } else {
-        alert("This assistant already exists!");
+
+        // Save to storage
+        chrome.storage.sync.set({ assistants: assistants }, function () {
+          // Re-render the list
+          renderAssistantList(assistants);
+        });
       }
-    });
+    );
   }
 
   // Delete assistant
-  function deleteAssistant(assistant) {
-    chrome.storage.sync.get("assistants", function (result) {
-      let assistants = result.assistants || defaultSettings.assistants;
+  function deleteAssistant(index) {
+    if (!confirm("Are you sure you want to delete this assistant?")) return;
 
-      // Remove assistant
-      assistants = assistants.filter((a) => a !== assistant);
+    chrome.storage.sync.get(
+      { assistants: defaultSettings.assistants },
+      function (data) {
+        const assistants = data.assistants;
 
-      // Save updated list
-      chrome.storage.sync.set({ assistants }, function () {
-        renderAssistantList(assistants);
-      });
-    });
+        // Remove the assistant
+        assistants.splice(index, 1);
+
+        // Save to storage
+        chrome.storage.sync.set({ assistants: assistants }, function () {
+          // Re-render the list
+          renderAssistantList(assistants);
+        });
+      }
+    );
+  }
+
+  // Edit assistant
+  function editAssistant(index) {
+    chrome.storage.sync.get(
+      { assistants: defaultSettings.assistants },
+      function (data) {
+        const assistants = data.assistants;
+        const assistant = assistants[index];
+
+        const name = prompt("Enter assistant name:", assistant.name);
+        if (!name) return;
+
+        const description = prompt(
+          "Enter assistant description:",
+          assistant.description
+        );
+        if (!description) return;
+
+        // Update assistant
+        assistants[index] = {
+          id: assistant.id, // Keep the same ID
+          name: name,
+          description: description,
+        };
+
+        // Save to storage
+        chrome.storage.sync.set({ assistants: assistants }, function () {
+          // Re-render the list
+          renderAssistantList(assistants);
+        });
+      }
+    );
   }
 
   // Add new action
   function addAction() {
-    const newAction = newActionInput.value.trim();
+    const name = prompt("Enter action name:");
+    if (!name) return;
 
-    if (!newAction) return;
+    const description = prompt("Enter action description:");
+    if (!description) return;
 
-    chrome.storage.sync.get("actions", function (result) {
-      let actions = result.actions || defaultSettings.actions;
+    chrome.storage.sync.get(
+      { actions: defaultSettings.actions },
+      function (data) {
+        const actions = data.actions;
 
-      // Add new action if it doesn't exist
-      if (!actions.includes(newAction)) {
-        actions.push(newAction);
-        chrome.storage.sync.set({ actions }, function () {
-          renderActionList(actions);
-          newActionInput.value = "";
+        // Generate a unique ID
+        const id = name.replace(/\s+/g, "");
+
+        // Add new action
+        actions.push({
+          id: id,
+          name: name,
+          description: description,
         });
-      } else {
-        alert("This action already exists!");
+
+        // Save to storage
+        chrome.storage.sync.set({ actions: actions }, function () {
+          // Re-render the list
+          renderActionList(actions);
+        });
       }
-    });
+    );
   }
 
   // Delete action
-  function deleteAction(action) {
-    chrome.storage.sync.get("actions", function (result) {
-      let actions = result.actions || defaultSettings.actions;
+  function deleteAction(index) {
+    if (!confirm("Are you sure you want to delete this action?")) return;
 
-      // Remove action
-      actions = actions.filter((a) => a !== action);
+    chrome.storage.sync.get(
+      { actions: defaultSettings.actions },
+      function (data) {
+        const actions = data.actions;
 
-      // Save updated list
-      chrome.storage.sync.set({ actions }, function () {
-        renderActionList(actions);
-      });
-    });
+        // Remove the action
+        actions.splice(index, 1);
+
+        // Save to storage
+        chrome.storage.sync.set({ actions: actions }, function () {
+          // Re-render the list
+          renderActionList(actions);
+        });
+      }
+    );
+  }
+
+  // Edit action
+  function editAction(index) {
+    chrome.storage.sync.get(
+      { actions: defaultSettings.actions },
+      function (data) {
+        const actions = data.actions;
+        const action = actions[index];
+
+        const name = prompt("Enter action name:", action.name);
+        if (!name) return;
+
+        const description = prompt(
+          "Enter action description:",
+          action.description
+        );
+        if (!description) return;
+
+        // Update action
+        actions[index] = {
+          id: action.id, // Keep the same ID
+          name: name,
+          description: description,
+        };
+
+        // Save to storage
+        chrome.storage.sync.set({ actions: actions }, function () {
+          // Re-render the list
+          renderActionList(actions);
+        });
+      }
+    );
   }
 
   // Save settings
   function saveSettings() {
-    const apiKey = apiKeyInput.value.trim();
-    const shortcut = shortcutDisplay.textContent;
+    const settings = {
+      apiKey: apiKeyInput.value,
+      shortcuts: shortcuts,
+    };
 
-    chrome.storage.sync.set({ apiKey, shortcut }, function () {
+    chrome.storage.sync.set(settings, function () {
       // Show saved message
       const saveMsg = document.createElement("div");
       saveMsg.className = "save-message";
@@ -268,9 +403,9 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           // Cancel recording
           isRecording = false;
-          chrome.storage.sync.get("shortcut", function (result) {
-            shortcutDisplay.textContent =
-              result.shortcut || defaultSettings.shortcut;
+          chrome.storage.sync.get("shortcuts", function (result) {
+            shortcuts = result.shortcuts || defaultSettings.shortcuts;
+            renderShortcuts(shortcuts);
           });
           this.textContent = "Edit";
 

@@ -1,7 +1,7 @@
 // Gmail Assistant Extension - Background Script
 
-// Log when the extension is installed
-chrome.runtime.onInstalled.addListener(() => {
+// Listen for extension installation
+chrome.runtime.onInstalled.addListener(function () {
   console.log("Gmail Assistant Extension installed");
 
   // Initialize default settings
@@ -20,9 +20,21 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Listen for messages from content script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("Background script received message:", request);
+// Listen for messages from content scripts
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  console.log("Message received:", request);
+
+  if (request.action === "openOptionsPage") {
+    // Open the options page
+    const optionsUrl = chrome.runtime.getURL("options/options.html");
+
+    // Check if we need to open a specific tab
+    if (request.tab) {
+      chrome.tabs.create({ url: `${optionsUrl}?tab=${request.tab}` });
+    } else {
+      chrome.tabs.create({ url: optionsUrl });
+    }
+  }
 
   if (request.action === "generateResponse") {
     // Get API key from storage
@@ -82,6 +94,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Return true to indicate we will respond asynchronously
     return true;
   }
+
+  // Always return true when using sendResponse asynchronously
+  return true;
 });
 
 // Function to call OpenAI API to generate response
@@ -164,4 +179,38 @@ function constructPrompt(assistant, action, emailThread) {
   });
 
   return prompt;
+}
+
+// Function to handle API requests
+async function callOpenAI(prompt, model = "gpt-3.5-turbo") {
+  try {
+    // Get API key from storage
+    const data = await chrome.storage.sync.get(["apiKey"]);
+    const apiKey = data.apiKey;
+
+    if (!apiKey) {
+      console.error("No API key found");
+      return {
+        error: "No API key found. Please add your API key in the options page.",
+      };
+    }
+
+    // TODO: Implement actual API call to OpenAI
+    console.log("Would call OpenAI with prompt:", prompt);
+
+    // Mock response for now
+    return {
+      choices: [
+        {
+          message: {
+            content:
+              "This is a mock response from the OpenAI API. Replace this with actual API call implementation.",
+          },
+        },
+      ],
+    };
+  } catch (error) {
+    console.error("Error calling OpenAI:", error);
+    return { error: error.message };
+  }
 }

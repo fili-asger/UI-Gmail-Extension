@@ -163,26 +163,25 @@ function getEmailThreadContent() {
 
 // Create HTML for the assistant UI
 function createAssistantUIHTML() {
-  // Return UI based on UI.html
   return `
-    <div class="modal-wrapper bg-white rounded-lg overflow-hidden">
+    <div class="modal-wrapper">
       <!-- Screen 1: Assistant Selection -->
       <div id="screen1" class="screen active">
         <!-- Header -->
-        <div class="gmail-header px-4 py-3 flex justify-between items-center">
-          <h2 class="text-lg font-medium text-white">AI Assistant</h2>
+        <div class="gmail-header">
+          <h2>AI Assistant</h2>
           <div class="flex items-center space-x-2">
-            <button id="keybindsBtn" class="text-white hover:text-gray-100">
+            <button id="desktopViewBtn" class="text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clip-rule="evenodd" />
               </svg>
             </button>
-            <button id="settingsBtn" class="text-white hover:text-gray-100">
+            <button id="settingsBtn" class="text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
               </svg>
             </button>
-            <button id="closeModalBtn" class="text-white hover:text-gray-100 close-btn">
+            <button id="closeModalBtn" class="text-white close-btn">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
               </svg>
@@ -195,81 +194,71 @@ function createAssistantUIHTML() {
           <!-- Assistant Selection -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label for="assistant" class="block text-sm font-medium text-gray-700">Select Assistant</label>
-              <div class="relative group">
-                <button class="text-blue-500 border border-blue-200 hover:bg-blue-50 h-7 w-7 flex items-center justify-center rounded-full transition-colors" aria-label="Auto-detect assistant">
-                  <span class="text-lg">🪄</span>
-                </button>
-                <div class="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">
-                  Let AI guess the assistant
-                  <div class="absolute top-full right-2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                </div>
+              <label for="assistant">Select Assistant</label>
+              <div class="magic-wand-button" aria-label="Auto-detect assistant">
+                <span>🪄</span>
               </div>
             </div>
             <div class="relative">
-              <select id="assistant" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
-                <option value="write-professional">Professional Writer</option>
-                <option value="write-friendly">Friendly Writer</option>
-                <option value="write-concise">Concise Writer</option>
-                <option value="custom">Custom Assistant</option>
+              <select id="assistant">
+                <option>HelloFresh</option>
+                <option>Podimo</option>
+                <option>Factor</option>
+                <option>Mofibo</option>
               </select>
-              <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </div>
             </div>
-            <button class="text-sm text-blue-600 hover:text-blue-800 mt-1" id="editAssistantListBtn">
+            <a href="#" class="text-blue-600 mt-1" id="editAssistantListBtn">
               Edit Assistant List
-            </button>
+            </a>
           </div>
 
           <!-- Action Selection -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label for="action" class="block text-sm font-medium text-gray-700">Select Action</label>
-              <div class="relative group">
-                <button class="text-blue-500 border border-blue-200 hover:bg-blue-50 h-7 w-7 flex items-center justify-center rounded-full transition-colors" aria-label="Auto-detect action">
-                  <span class="text-lg">🪄</span>
-                </button>
-                <div class="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">
-                  Let AI guess the action
-                  <div class="absolute top-full right-2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                </div>
+              <label for="action">Select Action</label>
+              <div class="magic-wand-button" aria-label="Auto-detect action">
+                <span>🪄</span>
               </div>
             </div>
             <div class="relative">
-              <select id="action" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
-                <option value="write-reply">Write Reply</option>
-                <option value="summarize">Summarize Thread</option>
-                <option value="suggest-bullets">Suggest Bullet Points</option>
-                <option value="translate">Translate</option>
-                <option value="custom">Custom Action</option>
+              <select id="action">
+                <option>Accept</option>
+                <option>Reject</option>
+                <option>Negotiate</option>
+                <option>Help</option>
               </select>
-              <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </div>
             </div>
-            <button class="text-sm text-blue-600 hover:text-blue-800 mt-1" id="editActionListBtn">
+            <a href="#" class="text-blue-600 mt-1" id="editActionListBtn">
               Edit Action List
-            </button>
+            </a>
           </div>
 
-          <!-- Email Preview -->
+          <!-- Email Thread -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email Thread</label>
-            <div class="border border-gray-300 rounded-md p-3 max-h-64 overflow-y-auto bg-gray-50" id="emailPreview">
+            <label>Email Thread</label>
+            <div id="emailPreview">
               <!-- This will be populated with the email thread content -->
-              <div class="text-sm text-gray-500 text-center py-2">Loading email content...</div>
+              <div class="email-sender">John Doe &lt;john.doe@example.com&gt;</div>
+              <div class="email-recipient">To: me</div>
+              <div class="email-subject">Subject: Meeting Follow-up</div>
+              <div class="email-content">
+                <p>Hi there,</p>
+                <p>I wanted to follow up on our meeting yesterday. Could you please send me the report we discussed?</p>
+                <p>Best regards,<br>John</p>
+              </div>
+              <hr style="margin: 15px 0; border: none; border-top: 1px solid #dcdfe3;">
+              <div class="email-sender">Me &lt;myemail@example.com&gt;</div>
+              <div class="email-recipient">To: John Doe</div>
+              <div class="email-content">
+                <p>Hi John,</p>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Footer -->
         <div class="bg-gray-50 px-4 py-3 flex justify-end">
-          <button id="generateBtn" class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          <button id="generateBtn" class="gmail-button">
             Generate Response
           </button>
         </div>
@@ -278,20 +267,20 @@ function createAssistantUIHTML() {
       <!-- Screen 2: Generated Response -->
       <div id="screen2" class="screen">
         <!-- Header -->
-        <div class="gmail-header px-4 py-3 flex justify-between items-center">
-          <h2 class="text-lg font-medium text-white">Generated Response</h2>
+        <div class="gmail-header">
+          <h2>Generated Response</h2>
           <div class="flex items-center space-x-2">
-            <button id="keybindsBtn2" class="text-white hover:text-gray-100">
+            <button id="desktopViewBtn2" class="text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clip-rule="evenodd" />
               </svg>
             </button>
-            <button id="settingsBtn2" class="text-white hover:text-gray-100">
+            <button id="settingsBtn2" class="text-white">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
               </svg>
             </button>
-            <button id="closeModalBtn2" class="text-white hover:text-gray-100 close-btn">
+            <button id="closeModalBtn2" class="text-white close-btn">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
               </svg>
@@ -302,7 +291,7 @@ function createAssistantUIHTML() {
         <!-- Content -->
         <div class="p-4">
           <!-- Rich Text Editor -->
-          <div id="responseText" class="border border-gray-300 rounded-md p-3 min-h-[200px] max-h-[300px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" contenteditable="true">
+          <div id="responseText" class="border border-gray-300 rounded-md p-3 min-h-[200px] max-h-[300px] overflow-y-auto" contenteditable="true">
             <div class="spinner-container">
               <div class="spinner"></div>
             </div>
@@ -311,14 +300,14 @@ function createAssistantUIHTML() {
 
         <!-- Footer -->
         <div class="bg-gray-50 px-4 py-3 flex justify-between">
-          <button id="backBtn" class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          <button id="backBtn" class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium">
             Back
           </button>
           <div class="flex space-x-2">
-            <button id="regenerateBtn" class="text-blue-600 border border-blue-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <button id="regenerateBtn" class="text-blue-600 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium">
               Regenerate
             </button>
-            <button id="insertBtn" class="gmail-button px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <button id="insertBtn" class="gmail-button">
               Insert in Email
             </button>
           </div>
@@ -559,3 +548,298 @@ new MutationObserver(() => {
     initExtension();
   }
 }).observe(document, { subtree: true, childList: true });
+
+// Initialize event listeners for the assistant UI
+function initAssistantUI() {
+  // Close button event
+  document.addEventListener("click", function (e) {
+    if (
+      e.target.closest(".close-btn") ||
+      e.target.id === "closeModalBtn" ||
+      e.target.id === "closeModalBtn2"
+    ) {
+      closeAssistantUI();
+    }
+  });
+
+  // Generate button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "generateBtn") {
+      showGeneratedResponse();
+    }
+  });
+
+  // Back button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "backBtn") {
+      showScreen("screen1");
+    }
+  });
+
+  // Insert button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "insertBtn") {
+      insertGeneratedText();
+    }
+  });
+
+  // Regenerate button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "regenerateBtn") {
+      regenerateResponse();
+    }
+  });
+
+  // Settings button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "settingsBtn" || e.target.id === "settingsBtn2") {
+      openSettings();
+    }
+  });
+
+  // Desktop view button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "desktopViewBtn" || e.target.id === "desktopViewBtn2") {
+      toggleDesktopView();
+    }
+  });
+
+  // Edit assistant list button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "editAssistantListBtn") {
+      editAssistantList();
+    }
+  });
+
+  // Edit action list button event
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "editActionListBtn") {
+      editActionList();
+    }
+  });
+
+  // Magic wand buttons
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".magic-wand-button")) {
+      const parentLabel = e.target
+        .closest("div")
+        .previousElementSibling.querySelector("label");
+      if (parentLabel && parentLabel.getAttribute("for") === "assistant") {
+        autoDetectAssistant();
+      } else if (parentLabel && parentLabel.getAttribute("for") === "action") {
+        autoDetectAction();
+      }
+    }
+  });
+}
+
+// Function to show a specific screen
+function showScreen(screenId) {
+  // Hide all screens
+  document.querySelectorAll(".screen").forEach((screen) => {
+    screen.classList.remove("active");
+  });
+
+  // Show the requested screen
+  document.getElementById(screenId).classList.add("active");
+}
+
+// Function to open the assistant UI
+function openAssistantUI() {
+  // Get email thread content
+  const emailContent = getEmailThreadContent();
+
+  // Create modal if it doesn't exist
+  if (!document.getElementById("gmail-assistant-modal")) {
+    const modalContainer = document.createElement("div");
+    modalContainer.id = "gmail-assistant-modal";
+    modalContainer.className = "modal-container";
+    modalContainer.innerHTML = createAssistantUIHTML();
+    document.body.appendChild(modalContainer);
+
+    // Initialize event listeners
+    initAssistantUI();
+  } else {
+    // Show the modal
+    document.getElementById("gmail-assistant-modal").style.display = "flex";
+  }
+
+  // Make sure we start on screen 1
+  showScreen("screen1");
+
+  // Populate email preview
+  populateEmailPreview(emailContent);
+}
+
+// Function to close the assistant UI
+function closeAssistantUI() {
+  const modal = document.getElementById("gmail-assistant-modal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+}
+
+// Function to populate the email preview
+function populateEmailPreview(emailContent) {
+  const emailPreviewElem = document.getElementById("emailPreview");
+  if (emailPreviewElem && emailContent) {
+    // Clear previous content
+    emailPreviewElem.innerHTML = "";
+
+    // Add sender info
+    if (emailContent.sender) {
+      const senderElem = document.createElement("div");
+      senderElem.className = "email-sender";
+      senderElem.textContent = emailContent.sender;
+      emailPreviewElem.appendChild(senderElem);
+    }
+
+    // Add recipient info
+    if (emailContent.recipient) {
+      const recipientElem = document.createElement("div");
+      recipientElem.className = "email-recipient";
+      recipientElem.textContent = `To: ${emailContent.recipient}`;
+      emailPreviewElem.appendChild(recipientElem);
+    }
+
+    // Add subject info
+    if (emailContent.subject) {
+      const subjectElem = document.createElement("div");
+      subjectElem.className = "email-subject";
+      subjectElem.textContent = `Subject: ${emailContent.subject}`;
+      emailPreviewElem.appendChild(subjectElem);
+    }
+
+    // Add messages
+    if (emailContent.messages && emailContent.messages.length > 0) {
+      emailContent.messages.forEach((message, index) => {
+        // Add separator between messages
+        if (index > 0) {
+          const separator = document.createElement("hr");
+          separator.style =
+            "margin: 15px 0; border: none; border-top: 1px solid #dcdfe3;";
+          emailPreviewElem.appendChild(separator);
+        }
+
+        // Add message content
+        const contentElem = document.createElement("div");
+        contentElem.className = "email-content";
+        contentElem.innerHTML = message.content;
+        emailPreviewElem.appendChild(contentElem);
+      });
+    }
+  }
+}
+
+// Function to show the generated response screen
+function showGeneratedResponse() {
+  // Get selected assistant and action
+  const assistant = document.getElementById("assistant").value;
+  const action = document.getElementById("action").value;
+
+  // Show the response screen
+  showScreen("screen2");
+
+  // Show loading spinner
+  document.getElementById("responseText").innerHTML =
+    '<div class="spinner-container"><div class="spinner"></div></div>';
+
+  // Generate the response (simulate API call)
+  setTimeout(() => {
+    generateResponse(assistant, action);
+  }, 1500);
+}
+
+// Function to generate a response based on assistant and action
+function generateResponse(assistant, action) {
+  // This would be replaced with an actual API call to OpenAI or similar
+  const responseText = `Here's a generated response using the "${assistant}" assistant with the "${action}" action.\n\nHi John,\n\nThank you for following up. I've attached the report we discussed in our meeting yesterday.\n\nPlease let me know if you need anything else.\n\nBest regards,`;
+
+  // Update the response text area
+  document.getElementById("responseText").innerHTML = responseText.replace(
+    /\n/g,
+    "<br>"
+  );
+}
+
+// Function to insert the generated text into the email compose area
+function insertGeneratedText() {
+  const responseText = document.getElementById("responseText").innerText;
+  const composeArea = document.querySelector(
+    'div[role="textbox"][aria-label*="Body"]'
+  );
+
+  if (composeArea) {
+    composeArea.innerHTML = responseText;
+  }
+
+  // Close the modal
+  closeAssistantUI();
+}
+
+// Function to regenerate the response
+function regenerateResponse() {
+  // Show loading spinner
+  document.getElementById("responseText").innerHTML =
+    '<div class="spinner-container"><div class="spinner"></div></div>';
+
+  // Get selected assistant and action
+  const assistant = document.getElementById("assistant").value;
+  const action = document.getElementById("action").value;
+
+  // Regenerate the response (simulate API call)
+  setTimeout(() => {
+    const responseText = `Here's a REGENERATED response using the "${assistant}" assistant with the "${action}" action.\n\nHi John,\n\nThanks for your email. I've attached the report we discussed during yesterday's meeting.\n\nLet me know if you have any questions about it.\n\nKind regards,`;
+
+    // Update the response text area
+    document.getElementById("responseText").innerHTML = responseText.replace(
+      /\n/g,
+      "<br>"
+    );
+  }, 1500);
+}
+
+// Function to open settings
+function openSettings() {
+  chrome.runtime.sendMessage({ action: "openOptionsPage" });
+}
+
+// Function to toggle desktop view
+function toggleDesktopView() {
+  // This would open a new window with the assistant UI
+  alert("Desktop view is not implemented yet");
+}
+
+// Function to edit assistant list
+function editAssistantList() {
+  chrome.runtime.sendMessage({ action: "openOptionsPage", tab: "assistants" });
+}
+
+// Function to edit action list
+function editActionList() {
+  chrome.runtime.sendMessage({ action: "openOptionsPage", tab: "actions" });
+}
+
+// Function to auto-detect assistant
+function autoDetectAssistant() {
+  // This would analyze the email content and select the appropriate assistant
+  const selectElement = document.getElementById("assistant");
+  if (selectElement) {
+    // Just select a random option for demonstration
+    const options = selectElement.options;
+    const randomIndex = Math.floor(Math.random() * options.length);
+    selectElement.selectedIndex = randomIndex;
+  }
+}
+
+// Function to auto-detect action
+function autoDetectAction() {
+  // This would analyze the email content and select the appropriate action
+  const selectElement = document.getElementById("action");
+  if (selectElement) {
+    // Just select a random option for demonstration
+    const options = selectElement.options;
+    const randomIndex = Math.floor(Math.random() * options.length);
+    selectElement.selectedIndex = randomIndex;
+  }
+}
