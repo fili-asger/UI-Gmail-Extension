@@ -101,12 +101,23 @@ function openAssistantUI(composeWindow) {
   if (!modalContainer) {
     modalContainer = document.createElement("div");
     modalContainer.id = "gmail-assistant-modal";
+    modalContainer.className = "modal-container";
     document.body.appendChild(modalContainer);
   }
 
   // Populate the modal with UI content
   modalContainer.innerHTML = createAssistantUIHTML();
   modalContainer.style.display = "flex";
+
+  // Create settings modal if it doesn't exist
+  if (!document.getElementById("settings-modal")) {
+    const settingsModal = document.createElement("div");
+    settingsModal.id = "settings-modal";
+    settingsModal.className = "modal-container";
+    settingsModal.style.display = "none";
+    settingsModal.innerHTML = createSettingsModalHTML();
+    document.body.appendChild(settingsModal);
+  }
 
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
@@ -317,9 +328,43 @@ function createAssistantUIHTML() {
   `;
 }
 
+// Create HTML for the settings modal
+function createSettingsModalHTML() {
+  return `
+    <div class="modal-wrapper" style="max-width: 500px;">
+      <!-- Header -->
+      <div class="gmail-header">
+        <h2>Settings</h2>
+        <button id="closeSettingsBtn" class="close-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="p-4 space-y-4">
+        <div>
+          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
+          <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
+          <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="bg-gray-50 px-4 py-3 flex justify-end">
+        <button id="saveSettingsBtn" class="gmail-button">
+          Save
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 // Set up event handlers for the UI
 function setupUIEventHandlers(composeWindow, emailThread) {
   const modal = document.getElementById("gmail-assistant-modal");
+  const settingsModal = document.getElementById("settings-modal");
 
   // Function to show a specific screen
   function showScreen(screenId) {
@@ -336,6 +381,44 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       modal.style.display = "none";
     });
   });
+
+  // Settings buttons
+  const settingsButtons = modal.querySelectorAll("#settingsBtn, #settingsBtn2");
+  settingsButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // Show settings modal
+      settingsModal.style.display = "flex";
+
+      // Load saved API key if exists
+      chrome.storage.local.get(["openai_api_key"], function (result) {
+        if (result.openai_api_key) {
+          settingsModal.querySelector("#apiKey").value = result.openai_api_key;
+        }
+      });
+    });
+  });
+
+  // Close settings modal
+  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener("click", () => {
+      settingsModal.style.display = "none";
+    });
+  }
+
+  // Save settings
+  const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener("click", () => {
+      const apiKey = document.getElementById("apiKey").value;
+
+      // Save API key to Chrome storage
+      chrome.storage.local.set({ openai_api_key: apiKey }, function () {
+        console.log("API key saved");
+        settingsModal.style.display = "none";
+      });
+    });
+  }
 
   // Populate email preview
   const emailPreview = modal.querySelector("#emailPreview");
@@ -496,16 +579,6 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       });
     });
   }
-
-  // Settings button
-  const settingsButtons = modal.querySelectorAll("#settingsBtn, #settingsBtn2");
-  settingsButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      chrome.runtime.sendMessage({
-        action: "openOptionsPage",
-      });
-    });
-  });
 }
 
 // Format the email response text with proper paragraphs and spacing
