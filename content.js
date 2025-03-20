@@ -14,6 +14,30 @@ function initExtension() {
 
   // Setup message listener for communication with background script
   setupMessageListeners();
+
+  // Add this call after injectAssistantButton:
+  setTimeout(function () {
+    debugLog("Running deferred initialization");
+    addDirectButtonHandler();
+
+    // Force a quick test of the modal
+    const testModal = document.createElement("div");
+    testModal.id = "test-modal";
+    testModal.style.cssText = "position: fixed; top: -9999px; left: -9999px;";
+    document.body.appendChild(testModal);
+    debugLog("Test modal created and appended:", testModal);
+
+    // Check if styling is applied properly
+    const testEl = document.createElement("div");
+    testEl.className = "settings-modal active";
+    testEl.style.cssText = "position: fixed; top: -9999px; left: -9999px;";
+    document.body.appendChild(testEl);
+    debugLog("Test element with settings-modal active class:", testEl);
+    debugLog(
+      "Computed style display:",
+      window.getComputedStyle(testEl).display
+    );
+  }, 2000); // Short timeout to ensure DOM is ready
 }
 
 // Check if current page is Gmail
@@ -62,6 +86,11 @@ function injectAssistantButton() {
 
 // Create and insert the assistant button
 function insertAssistantButton(toolbar, composeWindow) {
+  debugLog("insertAssistantButton called", toolbar);
+
+  // Hack: add direct button handlers on each attempt
+  setTimeout(addDirectButtonHandler, 500);
+
   // Find the attachment icons container
   const attachmentsSection = toolbar.querySelector(".a8X");
 
@@ -93,6 +122,11 @@ function insertAssistantButton(toolbar, composeWindow) {
 
 // Open the assistant UI
 function openAssistantUI(composeWindow) {
+  debugLog("openAssistantUI called");
+
+  // Add direct settings button handler here as well
+  setTimeout(addDirectButtonHandler, 100);
+
   // Get email thread content
   const emailThread = getEmailThreadContent();
 
@@ -111,6 +145,20 @@ function openAssistantUI(composeWindow) {
 
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
+
+  // Create a specific test to trigger a modal
+  const testButton = document.createElement("button");
+  testButton.id = "test-settings-btn";
+  testButton.textContent = "Test Settings";
+  testButton.style.cssText =
+    "position: fixed; top: 10px; right: 10px; z-index: 99999; background: red; color: white; padding: 5px;";
+  testButton.onclick = function () {
+    debugLog("Test settings button clicked");
+    showSettingsModal();
+    return false;
+  };
+  document.body.appendChild(testButton);
+  debugLog("Test settings button added to DOM", testButton);
 }
 
 // Extract email thread content
@@ -886,13 +934,23 @@ function autoDetectAction() {
   }
 }
 
+// Add this debugging function at the top of the file
+function debugLog(message, object) {
+  console.log(
+    "%c[DEBUG] " + message,
+    "background: #ffeb3b; color: black; padding: 2px 4px; border-radius: 2px;",
+    object || ""
+  );
+}
+
 // Function to show the settings modal
 function showSettingsModal() {
-  console.log("showSettingsModal called");
+  debugLog("showSettingsModal called");
 
   // Remove any existing settings modal first
   const existingModal = document.getElementById("settings-modal");
   if (existingModal) {
+    debugLog("Removing existing settings modal", existingModal);
     existingModal.remove();
   }
 
@@ -934,15 +992,22 @@ function showSettingsModal() {
     </div>
   `;
 
+  debugLog("Settings modal created:", settingsModal);
+
   // Add the modal to document
   document.body.appendChild(settingsModal);
 
-  console.log("Settings modal added to DOM:", settingsModal);
+  debugLog("Settings modal added to DOM, classList:", settingsModal.className);
+  debugLog(
+    "Settings modal style.display:",
+    window.getComputedStyle(settingsModal).display
+  );
 
   // Load API key from storage immediately
   chrome.storage.local.get(["openai_api_key"], function (result) {
     const apiKeyInput = document.getElementById("apiKey");
     if (apiKeyInput && result.openai_api_key) {
+      debugLog("API key loaded from storage");
       apiKeyInput.value = result.openai_api_key;
     }
   });
@@ -950,7 +1015,9 @@ function showSettingsModal() {
   // Set up event handlers directly
   const closeBtn = document.getElementById("closeSettingsBtn");
   if (closeBtn) {
+    debugLog("Setting up close button handler");
     closeBtn.onclick = function (e) {
+      debugLog("Close button clicked");
       e.preventDefault();
       e.stopPropagation();
       const modal = document.getElementById("settings-modal");
@@ -960,13 +1027,15 @@ function showSettingsModal() {
 
   const saveBtn = document.getElementById("saveSettingsBtn");
   if (saveBtn) {
+    debugLog("Setting up save button handler");
     saveBtn.onclick = function (e) {
+      debugLog("Save button clicked");
       e.preventDefault();
       e.stopPropagation();
       const apiKey = document.getElementById("apiKey").value;
 
       chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-        console.log("API key saved to storage");
+        debugLog("API key saved to storage");
         const modal = document.getElementById("settings-modal");
         if (modal) modal.remove();
       });
@@ -974,28 +1043,246 @@ function showSettingsModal() {
   }
 }
 
+// Modified direct button click handler
+function directSettingsButtonHandler() {
+  debugLog("Direct settings button click handler called");
+  showSettingsModal();
+  return false; // Prevent default and stop propagation
+}
+
 // Settings buttons - simplified event handling
 function setupSettingsButtonEvents(modal) {
-  console.log("Setting up settings button events");
+  debugLog("Setting up settings button events in modal", modal);
 
   const settingsButtons = modal.querySelectorAll("#settingsBtn, #settingsBtn2");
+  debugLog("Found settings buttons in modal:", settingsButtons.length);
+
   settingsButtons.forEach((btn) => {
+    debugLog("Adding click handler to button:", btn.id);
     // Use onclick instead of addEventListener for more direct binding
     btn.onclick = function (e) {
+      debugLog("Settings button clicked (from modal):", this.id);
       e.preventDefault();
       e.stopPropagation();
-      console.log("Settings button clicked:", this.id);
       showSettingsModal();
+      return false;
     };
   });
 
   // Also bind directly to settings button in the DOM
-  document.querySelectorAll("#settingsBtn, #settingsBtn2").forEach((btn) => {
+  const globalButtons = document.querySelectorAll(
+    "#settingsBtn, #settingsBtn2, .header-icon"
+  );
+  debugLog("Found global settings buttons:", globalButtons.length);
+
+  globalButtons.forEach((btn) => {
+    debugLog("Adding click handler to global button:", btn.id || btn.className);
     btn.onclick = function (e) {
+      debugLog("Settings button clicked (global):", this.id || this.className);
       e.preventDefault();
       e.stopPropagation();
-      console.log("Settings button clicked (global):", this.id);
       showSettingsModal();
+      return false;
     };
   });
+
+  // Let's try a more direct approach as well
+  window.addEventListener(
+    "click",
+    function (e) {
+      if (
+        e.target &&
+        (e.target.id === "settingsBtn" ||
+          e.target.id === "settingsBtn2" ||
+          e.target.classList.contains("header-icon") ||
+          (e.target.parentElement &&
+            (e.target.parentElement.id === "settingsBtn" ||
+              e.target.parentElement.id === "settingsBtn2" ||
+              e.target.parentElement.classList.contains("header-icon"))))
+      ) {
+        debugLog(
+          "Settings button or child element clicked (global event listener):",
+          e.target
+        );
+        e.preventDefault();
+        e.stopPropagation();
+        showSettingsModal();
+        return false;
+      }
+    },
+    true
+  );
 }
+
+// Add a function to be called during initialization
+function addDirectButtonHandler() {
+  debugLog("Adding direct button handler");
+  // Try to attach handler directly to all possible settings buttons
+  document
+    .querySelectorAll("#settingsBtn, #settingsBtn2, .header-icon")
+    .forEach((btn) => {
+      debugLog("Direct handler for:", btn.id || btn.className);
+      btn.onclick = directSettingsButtonHandler;
+
+      // Also add handler to SVG inside button
+      const svg = btn.querySelector("svg");
+      if (svg) {
+        debugLog("Adding handler to SVG inside button");
+        svg.onclick = directSettingsButtonHandler;
+      }
+
+      // And to the path inside SVG
+      const path = btn.querySelector("path");
+      if (path) {
+        debugLog("Adding handler to path inside SVG");
+        path.onclick = directSettingsButtonHandler;
+      }
+    });
+}
+
+// Direct event listeners for debugging
+document.addEventListener("DOMContentLoaded", function () {
+  debugLog("DOMContentLoaded event fired");
+  addGlobalEventListeners();
+});
+
+// Also add this in case DOMContentLoaded already fired
+setTimeout(addGlobalEventListeners, 1000);
+
+function addGlobalEventListeners() {
+  debugLog("Adding global event listeners");
+
+  // Direct document-level click handler
+  document.addEventListener(
+    "click",
+    function (e) {
+      // Log all clicks for debugging
+      debugLog(
+        "Document click event on:",
+        e.target.tagName +
+          (e.target.id ? "#" + e.target.id : "") +
+          (e.target.className
+            ? "." + e.target.className.replace(/ /g, ".")
+            : "")
+      );
+
+      // Check if this is our settings button or its children
+      if (
+        e.target.id === "settingsBtn" ||
+        e.target.classList.contains("header-icon") ||
+        (e.target.parentElement &&
+          (e.target.parentElement.id === "settingsBtn" ||
+            e.target.parentElement.classList.contains("header-icon"))) ||
+        (e.target.tagName === "svg" &&
+          e.target.parentElement &&
+          (e.target.parentElement.id === "settingsBtn" ||
+            e.target.parentElement.classList.contains("header-icon"))) ||
+        (e.target.tagName === "path" &&
+          e.target.parentElement &&
+          e.target.parentElement.parentElement &&
+          (e.target.parentElement.parentElement.id === "settingsBtn" ||
+            e.target.parentElement.parentElement.classList.contains(
+              "header-icon"
+            )))
+      ) {
+        debugLog("SETTINGS BUTTON CLICKED!", e.target);
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Directly show the modal without any other function calls
+        const existingModal = document.getElementById("settings-modal");
+        if (existingModal) {
+          existingModal.remove();
+        }
+
+        const modal = document.createElement("div");
+        modal.id = "settings-modal";
+        modal.className = "settings-modal active";
+        modal.innerHTML = `
+        <div class="settings-content">
+          <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
+            <h2>Settings</h2>
+            <button id="direct-close-btn">✕ Close</button>
+          </div>
+          <div class="p-4">
+            <p>This is a test settings modal opened by the direct event handler.</p>
+          </div>
+        </div>
+      `;
+
+        document.body.appendChild(modal);
+        debugLog("Direct modal added to DOM:", modal);
+
+        // Very important style overrides to ensure visibility
+        modal.style.cssText = `
+        position: fixed !important;
+        display: flex !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0,0,0,0.7) !important;
+        z-index: 99999999 !important;
+        justify-content: center !important;
+        align-items: center !important;
+      `;
+
+        // Add a close handler
+        const closeBtn = modal.querySelector("#direct-close-btn");
+        if (closeBtn) {
+          closeBtn.onclick = function () {
+            modal.remove();
+          };
+        }
+
+        // Click on modal background to close
+        modal.addEventListener("click", function (e) {
+          if (e.target === modal) {
+            modal.remove();
+          }
+        });
+
+        return false;
+      }
+    },
+    true
+  ); // Use capture phase to get the event first
+}
+
+// Add a MutationObserver to watch for the settings button being added to the DOM
+const bodyObserver = new MutationObserver(function (mutations) {
+  for (const mutation of mutations) {
+    if (mutation.type === "childList" && mutation.addedNodes.length) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const settingsButtons = node.querySelectorAll(
+            "#settingsBtn, .header-icon"
+          );
+          if (settingsButtons.length) {
+            debugLog(
+              "Settings buttons found in DOM mutation:",
+              settingsButtons.length
+            );
+            settingsButtons.forEach((btn) => {
+              btn.onclick = function (e) {
+                debugLog(
+                  "Settings button clicked via MutationObserver handler"
+                );
+                e.preventDefault();
+                e.stopPropagation();
+                showSettingsModal();
+                return false;
+              };
+            });
+          }
+        }
+      }
+    }
+  }
+});
+
+// Start observing the body
+setTimeout(function () {
+  bodyObserver.observe(document.body, { childList: true, subtree: true });
+  debugLog("Body observer started");
+}, 1500);
