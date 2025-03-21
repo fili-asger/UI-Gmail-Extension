@@ -1156,26 +1156,57 @@ function fetchOpenAIAssistants(forceRefresh = false) {
 
     const apiKey = result.openai_api_key;
 
+    // Try with the newest API version
+    const apiUrl = "https://api.openai.com/v1/assistants";
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "OpenAI-Version": "2023-10-31", // Updated to the latest stable version
+    };
+
+    console.log(
+      `Trying API call with URL: ${apiUrl} and version: ${headers["OpenAI-Version"]}`
+    );
+
     // Make API request to OpenAI to get assistants
-    fetch("https://api.openai.com/v1/assistants?limit=100", {
+    fetch(`${apiUrl}?limit=100&order=desc`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "OpenAI-Beta": "assistants=v1",
-      },
+      headers: headers,
     })
       .then((response) => {
         if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error(
-              "API key is invalid. Please check your API key in settings."
-            );
-          } else {
-            throw new Error(
-              `API request failed with status ${response.status}`
-            );
-          }
+          return response
+            .json()
+            .then((errorData) => {
+              // Log the full error response for debugging
+              console.error("Full API error response:", errorData);
+
+              // Try to get detailed error message from the response
+              const errorMessage =
+                errorData.error?.message ||
+                `API request failed with status ${response.status}`;
+              throw new Error(errorMessage);
+            })
+            .catch((jsonError) => {
+              // If we can't parse the JSON, fall back to status code error
+              if (response.status === 401) {
+                throw new Error(
+                  "API key is invalid. Please check your API key in settings."
+                );
+              } else if (response.status === 400) {
+                throw new Error(
+                  "Bad request: The API request is invalid. Check your API key format (should start with 'sk-')."
+                );
+              } else if (response.status === 404) {
+                throw new Error(
+                  "API endpoint not found. The OpenAI API endpoints may have changed."
+                );
+              } else {
+                throw new Error(
+                  `API request failed with status ${response.status}`
+                );
+              }
+            });
         }
         return response.json();
       })
@@ -1187,6 +1218,13 @@ function fetchOpenAIAssistants(forceRefresh = false) {
 
         // Extract assistant data
         const assistants = data.data || [];
+
+        // Show message if no assistants are found
+        if (assistants.length === 0) {
+          showAssistantError(
+            "No assistants found in your OpenAI account. Please create at least one assistant in the OpenAI dashboard."
+          );
+        }
 
         // Save assistants to storage
         chrome.storage.local.set(
@@ -1201,9 +1239,26 @@ function fetchOpenAIAssistants(forceRefresh = false) {
       })
       .catch((error) => {
         console.error("Error fetching OpenAI assistants:", error);
-        showAssistantError(
-          error.message || "Failed to fetch assistants. Please try again."
-        );
+
+        // More specific error message for common issues
+        if (error.message.includes("status 400")) {
+          showAssistantError(
+            "The API request format is invalid. This might be due to an incorrect API key format or OpenAI API version changes."
+          );
+        } else if (
+          error.message.includes("Failed to fetch") ||
+          error.message.includes("NetworkError")
+        ) {
+          showAssistantError(
+            "Network error: Could not connect to OpenAI API. Please check your internet connection."
+          );
+        } else if (error.message.includes("API key")) {
+          showAssistantError(error.message);
+        } else {
+          showAssistantError(
+            error.message || "Failed to fetch assistants. Please try again."
+          );
+        }
 
         // Hide loading indicator
         if (loadingEl) loadingEl.classList.add("hidden");
