@@ -21,14 +21,7 @@ function initExtension() {
   // Add handlers for settings buttons
   addSettingsButtonHandlers();
 
-  // Pre-fetch assistants if we have an API key
-  chrome.storage.local.get(["openai_api_key"], function (result) {
-    if (result.openai_api_key) {
-      console.log("API key found on startup, pre-fetching assistants");
-      // Fetch assistants in the background
-      setTimeout(fetchOpenAIAssistants, 2000);
-    }
-  });
+  // No pre-fetching of assistants on startup - we'll use cached data
 }
 
 // Check if current page is Gmail
@@ -158,8 +151,8 @@ function openAssistantUI(composeWindow) {
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
 
-  // Check API key and fetch assistants if needed
-  checkAPIKeyAndAssistants();
+  // Check API key and use cached assistants
+  loadCachedAssistants();
 }
 
 // Extract email thread content
@@ -549,8 +542,17 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editAssistantListBtn = modal.querySelector("#editAssistantListBtn");
   if (editAssistantListBtn) {
     editAssistantListBtn.addEventListener("click", () => {
-      // Show the manage assistants modal
-      showManageAssistantsModal();
+      // Fetch the latest assistants before showing the modal
+      console.log("Edit Assistant List clicked, fetching latest assistants");
+
+      // Show a loading indicator if we have one
+      const loadingEl = document.getElementById("assistant-loading");
+      if (loadingEl) loadingEl.classList.remove("hidden");
+
+      fetchOpenAIAssistants(true, function () {
+        // Show the manage assistants modal after fetching
+        showManageAssistantsModal();
+      });
     });
   }
 
@@ -1079,15 +1081,25 @@ function showSettingsModal() {
         return;
       }
 
-      chrome.storage.local.set({ openai_api_key: apiKey }, function () {
-        console.log("API key saved. Fetching assistants...");
+      // Check if the API key has changed
+      chrome.storage.local.get(["openai_api_key"], function (result) {
+        const oldKey = result.openai_api_key || "";
+        const newKey = apiKey;
 
-        // Fetch assistants with the new API key
-        fetchOpenAIAssistants();
+        // Save the new API key
+        chrome.storage.local.set({ openai_api_key: newKey }, function () {
+          console.log("API key saved.");
 
-        // Close the modal
-        const modal = document.getElementById("settings-modal");
-        if (modal) modal.remove();
+          // Only fetch assistants if the key is new or changed
+          if (oldKey !== newKey) {
+            console.log("API key changed, fetching assistants...");
+            fetchOpenAIAssistants();
+          }
+
+          // Close the modal
+          const modal = document.getElementById("settings-modal");
+          if (modal) modal.remove();
+        });
       });
     };
   }
@@ -1183,7 +1195,7 @@ const buttonObserver = new MutationObserver(function (mutations) {
 buttonObserver.observe(document.body, { childList: true, subtree: true });
 
 // Function to fetch OpenAI assistants using the API key
-function fetchOpenAIAssistants(forceRefresh = false) {
+function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
   console.log("Fetching OpenAI assistants...");
 
   // Show loading indicator
@@ -1204,26 +1216,26 @@ function fetchOpenAIAssistants(forceRefresh = false) {
       showAssistantError(
         "No API key found. Please add your OpenAI API key in settings."
       );
+
+      // Hide loading indicator
+      if (loadingEl) loadingEl.classList.add("hidden");
+
+      // Execute callback if provided
+      if (callback) callback();
       return;
     }
 
     const apiKey = result.openai_api_key;
-    console.log("Using API key with prefix:", apiKey.substring(0, 8) + "...");
 
     // Use the API call with the required beta header and a higher limit
     const apiUrl = "https://api.openai.com/v1/assistants?limit=100&order=desc";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v2", // Add the required beta header
+      "OpenAI-Beta": "assistants=v2", // Required beta header
     };
 
-    console.log(
-      "Making API call to:",
-      apiUrl,
-      "with beta header:",
-      headers["OpenAI-Beta"]
-    );
+    console.log("Making API call to:", apiUrl);
 
     // Make API request to OpenAI to get assistants
     fetch(apiUrl, {
@@ -1246,7 +1258,7 @@ function fetchOpenAIAssistants(forceRefresh = false) {
               errorData = { error: { message: text } };
             }
 
-            // Generic error handling without validation on key format
+            // Generic error handling
             throw new Error(
               `API request failed with status ${response.status}: ${
                 errorData.error?.message || "Unknown error"
@@ -1327,8 +1339,33 @@ function fetchOpenAIAssistants(forceRefresh = false) {
             function () {
               console.log("Assistants saved to storage:", assistants.length);
 
-              // Update dropdown if it exists
-              updateAssistantDropdown(assistants);
+              // Get the selected assistants
+              chrome.storage.local.get(
+                ["selected_assistants"],
+                function (result) {
+                  let selectedAssistants = result.selected_assistants || {};
+
+                  // If no selections exist yet, default to all assistants selected
+                  if (Object.keys(selectedAssistants).length === 0) {
+                    assistants.forEach((assistant) => {
+                      selectedAssistants[assistant.id] = true;
+                    });
+                    // Save this initial selection
+                    chrome.storage.local.set({
+                      selected_assistants: selectedAssistants,
+                    });
+                  }
+
+                  // Update dropdown if it exists
+                  updateAssistantDropdownWithSelection(
+                    assistants,
+                    selectedAssistants
+                  );
+
+                  // Execute callback if provided
+                  if (callback) callback();
+                }
+              );
             }
           );
         };
@@ -1345,11 +1382,14 @@ function fetchOpenAIAssistants(forceRefresh = false) {
       .catch((error) => {
         console.error("Error fetching OpenAI assistants:", error);
 
-        // Simplified error message that doesn't validate key format
+        // Show error message
         showAssistantError(`Failed to fetch assistants: ${error.message}`);
 
         // Hide loading indicator
         if (loadingEl) loadingEl.classList.add("hidden");
+
+        // Execute callback even on error
+        if (callback) callback();
       });
   });
 }
@@ -1767,21 +1807,7 @@ function addAssistantStyles() {
 
 // Add a function to check API key and show settings if missing
 function checkAPIKeyAndAssistants() {
-  chrome.storage.local.get(
-    ["openai_api_key", "openai_assistants"],
-    function (result) {
-      if (!result.openai_api_key) {
-        console.log("No API key found, showing settings");
-        showSettingsModal();
-        return;
-      }
-
-      if (!result.openai_assistants || result.openai_assistants.length === 0) {
-        console.log("No assistants found, fetching from API");
-        fetchOpenAIAssistants();
-      }
-    }
-  );
+  loadCachedAssistants();
 }
 
 // Add function to generate a response using OpenAI Assistants API
@@ -2041,4 +2067,46 @@ function formatEmailThreadForPrompt(emailThread, action) {
   prompt += `Based on this email thread, please generate a professional response that I can use to reply. The tone should be appropriate for the action "${action}".`;
 
   return prompt;
+}
+
+// Add a function to load cached assistants
+function loadCachedAssistants() {
+  chrome.storage.local.get(
+    ["openai_api_key", "openai_assistants", "selected_assistants"],
+    function (result) {
+      if (!result.openai_api_key) {
+        console.log("No API key found, showing settings");
+        showSettingsModal();
+        return;
+      }
+
+      // If we have cached assistants, use them
+      if (result.openai_assistants && result.openai_assistants.length > 0) {
+        console.log(
+          "Using cached assistants:",
+          result.openai_assistants.length
+        );
+
+        // Use selected assistants if available, otherwise default all to selected
+        let selectedAssistants = result.selected_assistants || {};
+        if (Object.keys(selectedAssistants).length === 0) {
+          result.openai_assistants.forEach((assistant) => {
+            selectedAssistants[assistant.id] = true;
+          });
+          // Save this initial selection
+          chrome.storage.local.set({ selected_assistants: selectedAssistants });
+        }
+
+        // Update the dropdown with cached assistants and selection
+        updateAssistantDropdownWithSelection(
+          result.openai_assistants,
+          selectedAssistants
+        );
+      } else {
+        // No cached assistants, fetch them (first-time use case)
+        console.log("No cached assistants found, fetching from API");
+        fetchOpenAIAssistants(false);
+      }
+    }
+  );
 }
