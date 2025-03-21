@@ -594,32 +594,32 @@ function insertResponseIntoEmail(responseContent, composeWindow) {
     if (composeField) {
       console.log("Found compose field, inserting response");
 
-      // Check if the field is empty (just a <br> tag)
+      // Focus the field to ensure it's active
+      composeField.focus();
+
+      // Check if the field is empty (just contains a <br> tag or is empty)
       const isEmpty =
         composeField.innerHTML.trim() === "<br>" ||
         composeField.innerHTML.trim() === "";
 
-      // Clear field if it's not empty and just has a placeholder <br>
-      if (isEmpty) {
-        composeField.innerHTML = "";
-      }
-
-      // Format the response as appropriate paragraphs
-      const paragraphs = cleanedText.split("\n\n");
-
-      // Insert the text, preserving paragraph breaks
-      paragraphs.forEach((paragraph, index) => {
-        if (paragraph.trim() === "") return;
-
-        const p = document.createElement("p");
-        p.textContent = paragraph;
-        composeField.appendChild(p);
-
-        // Add a break between paragraphs
-        if (index < paragraphs.length - 1) {
-          composeField.appendChild(document.createElement("br"));
+      // Use execCommand to insert text, which preserves Gmail's default formatting
+      if (document.queryCommandSupported("insertText")) {
+        // For an empty field, we need to clear the <br> first
+        if (isEmpty) {
+          composeField.innerHTML = "";
         }
-      });
+
+        // Use execCommand which preserves Gmail's default formatting
+        document.execCommand("insertText", false, cleanedText);
+      } else {
+        // Fallback: directly set text content which also preserves default formatting
+        if (isEmpty) {
+          composeField.textContent = cleanedText;
+        } else {
+          // If field already has content, append to it
+          composeField.textContent += cleanedText;
+        }
+      }
 
       // Trigger input event to ensure Gmail recognizes the change
       composeField.dispatchEvent(new Event("input", { bubbles: true }));
