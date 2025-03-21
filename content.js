@@ -450,36 +450,6 @@ function setupUIEventHandlers(composeWindow, emailThread) {
     });
   }
 
-  // Populate email preview
-  const emailPreview = modal.querySelector("#emailPreview");
-  if (emailPreview) {
-    let previewHtml = "";
-
-    previewHtml += `
-      <div class="space-y-3">
-        <div>
-          <p class="text-sm font-medium text-gray-900">Subject: ${emailThread.subject}</p>
-        </div>
-    `;
-
-    emailThread.thread.forEach((message, index) => {
-      previewHtml += `
-        ${index > 0 ? '<div class="border-t border-gray-200 pt-2">' : "<div>"}
-          <p class="text-sm font-medium text-gray-900">
-            ${message.from}
-          </p>
-          <p class="text-xs text-gray-500">To: ${message.to}</p>
-          <p class="text-sm mt-1">${message.content.substring(0, 150)}${
-        message.content.length > 150 ? "..." : ""
-      }</p>
-        </div>
-      `;
-    });
-
-    previewHtml += "</div>";
-    emailPreview.innerHTML = previewHtml;
-  }
-
   // Generate response
   const generateBtn = modal.querySelector("#generateBtn");
   if (generateBtn) {
@@ -529,67 +499,49 @@ function setupUIEventHandlers(composeWindow, emailThread) {
     });
   }
 
-  // Insert button
-  const insertBtn = modal.querySelector("#insertBtn");
-  if (insertBtn) {
-    insertBtn.addEventListener("click", () => {
-      const responseText = modal.querySelector("#responseText").innerText;
-
-      // Find the editable area in the compose window
-      let editableArea;
-
-      // Check if it's a reply
-      if (composeWindow.classList.contains("aDh")) {
-        editableArea = composeWindow.querySelector("[contenteditable='true']");
-      } else {
-        // Regular compose window
-        editableArea = composeWindow.querySelector("[g_editable='true']");
-      }
-
-      if (editableArea) {
-        // Insert text into compose area
-        editableArea.focus();
-
-        // Use document.execCommand for compatibility
-        document.execCommand("insertText", false, responseText);
-
-        // Close modal
-        modal.style.display = "none";
-      }
-    });
-  }
-
   // Regenerate button
   const regenerateBtn = modal.querySelector("#regenerateBtn");
   if (regenerateBtn) {
     regenerateBtn.addEventListener("click", () => {
-      // Here we would show the regenerate modal
-      const assistant = modal.querySelector("#assistant").value;
+      const assistantSelect = modal.querySelector("#assistant");
       const action = modal.querySelector("#action").value;
 
-      // For now, just regenerate without additional instructions
+      // Show loading indicator again
       const responseText = modal.querySelector("#responseText");
       responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
 
-      chrome.runtime.sendMessage(
-        {
-          action: "generateResponse",
-          data: {
-            assistant,
-            action,
-            emailThread,
-          },
-        },
-        (response) => {
-          if (response && response.success) {
-            responseText.innerHTML = formatEmailResponse(response.response);
-          } else {
-            responseText.innerHTML = `<p class="text-red-500">Error: ${
-              response?.error || "Failed to generate response"
-            }</p>`;
-          }
+      // Get the API key from storage
+      chrome.storage.local.get(["openai_api_key"], function (result) {
+        if (!result.openai_api_key) {
+          responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
+          return;
         }
-      );
+
+        // Call OpenAI API again
+        generateResponseWithAssistant(
+          result.openai_api_key,
+          assistantSelect.value,
+          action,
+          emailThread,
+          responseText
+        );
+      });
+    });
+  }
+
+  // Insert button
+  const insertBtn = modal.querySelector("#insertBtn");
+  if (insertBtn) {
+    insertBtn.addEventListener("click", () => {
+      const responseText = modal.querySelector("#responseText");
+      const responseContent =
+        responseText.innerText || responseText.textContent;
+
+      // Insert the response into the Gmail compose field
+      insertResponseIntoEmail(responseContent, composeWindow);
+
+      // Close the modal
+      modal.style.display = "none";
     });
   }
 
@@ -606,12 +558,80 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editActionListBtn = modal.querySelector("#editActionListBtn");
   if (editActionListBtn) {
     editActionListBtn.addEventListener("click", () => {
-      // Show action management UI in main modal
-      // This would be implemented later
-      alert(
-        "Action management will be added to the main modal in a future update"
-      );
+      alert("Action management will be added in a future update");
     });
+  }
+}
+
+// Function to insert the generated response into the Gmail compose field
+function insertResponseIntoEmail(responseContent, composeWindow) {
+  try {
+    console.log("Inserting response into email field");
+
+    // Clean the response text of any HTML tags if needed
+    const cleanedText = responseContent
+      .replace(/<div class="spinner-container">.*?<\/div>/g, "")
+      .replace(/<[^>]*>/g, "");
+
+    // First, try to find the compose field within the composeWindow
+    let composeField = null;
+
+    if (composeWindow) {
+      // Try to find the compose field within the provided composeWindow
+      composeField = composeWindow.querySelector(
+        '.editable[contenteditable="true"]'
+      );
+    }
+
+    // If not found in composeWindow, try to find it in the document
+    if (!composeField) {
+      // Look for the active compose field in the document
+      composeField = document.querySelector(
+        '.aO7 .editable[contenteditable="true"], .Am.Al.editable'
+      );
+    }
+
+    if (composeField) {
+      console.log("Found compose field, inserting response");
+
+      // Check if the field is empty (just a <br> tag)
+      const isEmpty =
+        composeField.innerHTML.trim() === "<br>" ||
+        composeField.innerHTML.trim() === "";
+
+      // Clear field if it's not empty and just has a placeholder <br>
+      if (isEmpty) {
+        composeField.innerHTML = "";
+      }
+
+      // Format the response as appropriate paragraphs
+      const paragraphs = cleanedText.split("\n\n");
+
+      // Insert the text, preserving paragraph breaks
+      paragraphs.forEach((paragraph, index) => {
+        if (paragraph.trim() === "") return;
+
+        const p = document.createElement("p");
+        p.textContent = paragraph;
+        composeField.appendChild(p);
+
+        // Add a break between paragraphs
+        if (index < paragraphs.length - 1) {
+          composeField.appendChild(document.createElement("br"));
+        }
+      });
+
+      // Trigger input event to ensure Gmail recognizes the change
+      composeField.dispatchEvent(new Event("input", { bubbles: true }));
+
+      console.log("Response inserted successfully");
+    } else {
+      console.error("Could not find the Gmail compose field");
+      alert("Could not find the Gmail compose field. Please try again.");
+    }
+  } catch (error) {
+    console.error("Error inserting response:", error);
+    alert("Error inserting response: " + error.message);
   }
 }
 
