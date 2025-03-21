@@ -102,11 +102,9 @@ function insertAssistantButton(toolbar, composeWindow) {
   button.className = "assistant-btn";
   buttonDiv.appendChild(button);
 
-  // Add click event with direct modal opening
-  buttonDiv.onclick = function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Assistant button clicked in toolbar");
+  // Simplify the click event to ensure it works consistently
+  buttonDiv.addEventListener("click", function () {
+    console.log("Assistant button clicked in toolbar - direct handler");
 
     // Try opening the settings modal first if no API key
     chrome.storage.local.get(["openai_api_key"], function (result) {
@@ -117,8 +115,7 @@ function insertAssistantButton(toolbar, composeWindow) {
         openAssistantUI(composeWindow);
       }
     });
-    return false;
-  };
+  });
 
   // Insert button into toolbar
   attachmentsSection.appendChild(buttonDiv);
@@ -142,6 +139,20 @@ function openAssistantUI(composeWindow) {
 
   // Create and insert assistant UI HTML
   modalContainer.innerHTML = createAssistantUIHTML(emailThread);
+
+  // Force modal to be visible with inline styles
+  modalContainer.style.cssText = `
+    position: fixed !important;
+    display: flex !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.5) !important;
+    z-index: 9999999 !important;
+    justify-content: center !important;
+    align-items: center !important;
+  `;
 
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
@@ -1191,63 +1202,51 @@ function fetchOpenAIAssistants(forceRefresh = false) {
     }
 
     const apiKey = result.openai_api_key;
+    console.log("Using API key with prefix:", apiKey.substring(0, 8) + "...");
 
-    // Try with the newest API version
+    // Use simpler API call with just the API key
     const apiUrl = "https://api.openai.com/v1/assistants";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Version": "2023-10-31", // Updated to the latest stable version
+      // No version header, use the API's default
     };
 
-    console.log(
-      `Trying API call with URL: ${apiUrl} and version: ${headers["OpenAI-Version"]}`
-    );
+    console.log("Making API call to:", apiUrl);
 
     // Make API request to OpenAI to get assistants
-    fetch(`${apiUrl}?limit=100&order=desc`, {
+    fetch(apiUrl, {
       method: "GET",
       headers: headers,
     })
       .then((response) => {
-        if (!response.ok) {
-          return response
-            .json()
-            .then((errorData) => {
-              // Log the full error response for debugging
-              console.error("Full API error response:", errorData);
+        console.log("API response status:", response.status);
 
-              // Try to get detailed error message from the response
-              const errorMessage =
-                errorData.error?.message ||
-                `API request failed with status ${response.status}`;
-              throw new Error(errorMessage);
-            })
-            .catch((jsonError) => {
-              // If we can't parse the JSON, fall back to status code error
-              if (response.status === 401) {
-                throw new Error(
-                  "API key is invalid. Please check your API key in settings."
-                );
-              } else if (response.status === 400) {
-                throw new Error(
-                  "Bad request: The API request is invalid. Check your API key format (should start with 'sk-')."
-                );
-              } else if (response.status === 404) {
-                throw new Error(
-                  "API endpoint not found. The OpenAI API endpoints may have changed."
-                );
-              } else {
-                throw new Error(
-                  `API request failed with status ${response.status}`
-                );
-              }
-            });
+        if (!response.ok) {
+          return response.text().then((text) => {
+            let errorData;
+            try {
+              // Try to parse JSON
+              errorData = JSON.parse(text);
+              console.error("Full API error response:", errorData);
+            } catch (e) {
+              // If not JSON, use text as is
+              console.error("API error response (text):", text);
+              errorData = { error: { message: text } };
+            }
+
+            // Generic error handling without validation on key format
+            throw new Error(
+              `API request failed with status ${response.status}: ${
+                errorData.error?.message || "Unknown error"
+              }`
+            );
+          });
         }
         return response.json();
       })
       .then((data) => {
-        console.log("OpenAI assistants fetched:", data);
+        console.log("OpenAI assistants fetched successfully");
 
         // Hide loading indicator
         if (loadingEl) loadingEl.classList.add("hidden");
@@ -1276,25 +1275,8 @@ function fetchOpenAIAssistants(forceRefresh = false) {
       .catch((error) => {
         console.error("Error fetching OpenAI assistants:", error);
 
-        // More specific error message for common issues
-        if (error.message.includes("status 400")) {
-          showAssistantError(
-            "The API request format is invalid. This might be due to an incorrect API key format or OpenAI API version changes."
-          );
-        } else if (
-          error.message.includes("Failed to fetch") ||
-          error.message.includes("NetworkError")
-        ) {
-          showAssistantError(
-            "Network error: Could not connect to OpenAI API. Please check your internet connection."
-          );
-        } else if (error.message.includes("API key")) {
-          showAssistantError(error.message);
-        } else {
-          showAssistantError(
-            error.message || "Failed to fetch assistants. Please try again."
-          );
-        }
+        // Simplified error message that doesn't validate key format
+        showAssistantError(`Failed to fetch assistants: ${error.message}`);
 
         // Hide loading indicator
         if (loadingEl) loadingEl.classList.add("hidden");
