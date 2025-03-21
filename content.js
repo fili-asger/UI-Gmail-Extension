@@ -600,11 +600,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editAssistantListBtn = modal.querySelector("#editAssistantListBtn");
   if (editAssistantListBtn) {
     editAssistantListBtn.addEventListener("click", () => {
-      // Show assistant management UI in main modal
-      // This would be implemented later
-      alert(
-        "Assistant management will be added to the main modal in a future update"
-      );
+      // Show the manage assistants modal
+      showManageAssistantsModal();
     });
   }
 
@@ -930,14 +927,6 @@ function editAssistantList() {
   // Will be implemented in the main modal
   alert(
     "Assistant management will be added directly to the extension in a future update"
-  );
-}
-
-// Function to edit action list
-function editActionList() {
-  // Will be implemented in the main modal
-  alert(
-    "Action management will be added directly to the extension in a future update"
   );
 }
 
@@ -1402,4 +1391,265 @@ function checkAPIKeyAndAssistants() {
       }
     }
   );
+}
+
+// Add this new function to show the manage assistants modal
+function showManageAssistantsModal() {
+  console.log("Showing manage assistants modal");
+
+  // Remove any existing manage assistants modal first
+  const existingModal = document.getElementById("manage-assistants-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create the modal element
+  const manageModal = document.createElement("div");
+  manageModal.id = "manage-assistants-modal";
+  manageModal.className = "settings-modal active";
+
+  // Force visibility with inline styles
+  manageModal.style.cssText = `
+    position: fixed !important;
+    display: flex !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.5) !important;
+    z-index: 9999999 !important;
+    justify-content: center !important;
+    align-items: center !important;
+  `;
+
+  // Get assistants from storage
+  chrome.storage.local.get(
+    ["openai_assistants", "selected_assistants"],
+    function (result) {
+      let assistants = result.openai_assistants || [];
+      let selectedAssistants = result.selected_assistants || {};
+
+      // If no selections exist yet, default to all assistants selected
+      if (Object.keys(selectedAssistants).length === 0) {
+        assistants.forEach((assistant) => {
+          selectedAssistants[assistant.id] = true;
+        });
+      }
+
+      // Create the modal content
+      let modalContent = `
+      <div class="modal-content" style="background: white; border-radius: 8px; width: 500px; max-width: 90%; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <!-- Header -->
+        <div class="gmail-header" style="background-color: #4285f4; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 22px; margin: 0;">Manage Assistants</h2>
+          <button id="close-manage-assistants-btn" class="close-btn" style="background: none; border: none; color: white; cursor: pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Selection Buttons -->
+        <div style="padding: 24px 24px 0 24px;">
+          <div style="display: flex; margin-bottom: 24px;">
+            <button id="select-all-btn" style="display: flex; align-items: center; color: #4285f4; background: none; border: none; font-size: 16px; font-weight: 500; cursor: pointer; margin-right: 24px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              Select All
+            </button>
+            <button id="deselect-all-btn" style="display: flex; align-items: center; color: #4285f4; background: none; border: none; font-size: 16px; font-weight: 500; cursor: pointer;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                <path d="M18 6L6 18"></path>
+                <path d="M6 6l12 12"></path>
+              </svg>
+              Deselect All
+            </button>
+          </div>
+        </div>
+
+        <!-- Assistants List -->
+        <div style="max-height: 300px; overflow-y: auto; padding: 0 24px;">
+          <div style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px;">
+    `;
+
+      // Add each assistant as a checkbox item
+      assistants.forEach((assistant) => {
+        const isChecked = selectedAssistants[assistant.id];
+        const assistantName =
+          assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+
+        modalContent += `
+        <div class="assistant-item" style="display: flex; align-items: center; padding: 8px 0;">
+          <label class="checkbox-container" style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+            <input type="checkbox" class="assistant-checkbox" data-id="${
+              assistant.id
+            }" ${
+          isChecked ? "checked" : ""
+        } style="width: 20px; height: 20px; margin-right: 12px;">
+            <span style="font-size: 16px; color: #333;">${assistantName}</span>
+          </label>
+        </div>
+      `;
+      });
+
+      // Add footer with buttons
+      modalContent += `
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e0e0e0; padding: 16px 24px; display: flex; justify-content: space-between; margin-top: 16px;">
+          <button id="cancel-manage-assistants-btn" style="padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; cursor: pointer;">
+            Cancel
+          </button>
+          <button id="save-manage-assistants-btn" style="padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">
+            Save
+          </button>
+        </div>
+      </div>
+    `;
+
+      // Set the modal content and add to document
+      manageModal.innerHTML = modalContent;
+      document.body.appendChild(manageModal);
+
+      // Set up event handlers
+
+      // Close button
+      const closeBtn = document.getElementById("close-manage-assistants-btn");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+          manageModal.remove();
+        });
+      }
+
+      // Cancel button
+      const cancelBtn = document.getElementById("cancel-manage-assistants-btn");
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => {
+          manageModal.remove();
+        });
+      }
+
+      // Select All button
+      const selectAllBtn = document.getElementById("select-all-btn");
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener("click", () => {
+          const checkboxes = manageModal.querySelectorAll(
+            ".assistant-checkbox"
+          );
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = true;
+          });
+        });
+      }
+
+      // Deselect All button
+      const deselectAllBtn = document.getElementById("deselect-all-btn");
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener("click", () => {
+          const checkboxes = manageModal.querySelectorAll(
+            ".assistant-checkbox"
+          );
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+        });
+      }
+
+      // Save button
+      const saveBtn = document.getElementById("save-manage-assistants-btn");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+          // Collect selected assistants
+          const checkboxes = manageModal.querySelectorAll(
+            ".assistant-checkbox"
+          );
+          const selectedAssistants = {};
+
+          checkboxes.forEach((checkbox) => {
+            const assistantId = checkbox.getAttribute("data-id");
+            selectedAssistants[assistantId] = checkbox.checked;
+          });
+
+          // Save selected assistants to storage
+          chrome.storage.local.set(
+            { selected_assistants: selectedAssistants },
+            function () {
+              console.log("Selected assistants saved:", selectedAssistants);
+
+              // Update the dropdown to reflect selected assistants
+              updateAssistantDropdownWithSelection(
+                assistants,
+                selectedAssistants
+              );
+
+              // Close the modal
+              manageModal.remove();
+            }
+          );
+        });
+      }
+    }
+  );
+}
+
+// Update the updateAssistantDropdown function to take selected assistants into account
+function updateAssistantDropdownWithSelection(assistants, selectedAssistants) {
+  const dropdown = document.getElementById("assistant");
+  if (!dropdown) return;
+
+  // Clear existing options
+  dropdown.innerHTML = "";
+
+  // Add a default option
+  const defaultOption = document.createElement("option");
+  defaultOption.textContent = "Select an assistant...";
+  defaultOption.value = "";
+  dropdown.appendChild(defaultOption);
+
+  // Filter assistants based on selection and add to dropdown
+  const filteredAssistants = assistants.filter(
+    (assistant) => selectedAssistants[assistant.id]
+  );
+
+  filteredAssistants.forEach((assistant) => {
+    const option = document.createElement("option");
+    option.value = assistant.id;
+    option.textContent =
+      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+    dropdown.appendChild(option);
+  });
+
+  // Notify user if no assistants are selected
+  if (filteredAssistants.length === 0) {
+    const noAssistantsOption = document.createElement("option");
+    noAssistantsOption.textContent =
+      "No assistants selected - manage your list";
+    noAssistantsOption.disabled = true;
+    dropdown.appendChild(noAssistantsOption);
+  }
+}
+
+// Modify the updateAssistantDropdown function to use the selection logic
+function updateAssistantDropdown(assistants) {
+  // Check if we have any selected assistants
+  chrome.storage.local.get(["selected_assistants"], function (result) {
+    let selectedAssistants = result.selected_assistants || {};
+
+    // If no selections exist yet, default to all assistants selected
+    if (Object.keys(selectedAssistants).length === 0) {
+      assistants.forEach((assistant) => {
+        selectedAssistants[assistant.id] = true;
+      });
+      // Save this initial selection
+      chrome.storage.local.set({ selected_assistants: selectedAssistants });
+    }
+
+    // Update the dropdown using the selection
+    updateAssistantDropdownWithSelection(assistants, selectedAssistants);
+  });
 }
