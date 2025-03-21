@@ -9,6 +9,9 @@ function initExtension() {
 
   console.log("Gmail detected, initializing extension");
 
+  // Add styles for the refresh button
+  addAssistantStyles();
+
   // Create and inject the email assistant button
   injectAssistantButton();
 
@@ -17,6 +20,15 @@ function initExtension() {
 
   // Add handlers for settings buttons
   addSettingsButtonHandlers();
+
+  // Pre-fetch assistants if we have an API key
+  chrome.storage.local.get(["openai_api_key"], function (result) {
+    if (result.openai_api_key) {
+      console.log("API key found on startup, pre-fetching assistants");
+      // Fetch assistants in the background
+      setTimeout(fetchOpenAIAssistants, 2000);
+    }
+  });
 }
 
 // Check if current page is Gmail
@@ -116,6 +128,9 @@ function openAssistantUI(composeWindow) {
 
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
+
+  // Check API key and fetch assistants if needed
+  checkAPIKeyAndAssistants();
 }
 
 // Extract email thread content
@@ -201,21 +216,29 @@ function createAssistantUIHTML(emailThread) {
           <div>
             <div class="flex items-center justify-between mb-1">
               <label for="assistant">Select Assistant</label>
-              <div class="magic-wand-button" aria-label="Auto-detect assistant">
-                <span>🪄</span>
+              <div class="flex items-center">
+                <button id="refreshAssistantsBtn" class="refresh-btn" title="Refresh assistants list">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                </button>
+                <div class="magic-wand-button" aria-label="Auto-detect assistant">
+                  <span>🪄</span>
+                </div>
               </div>
             </div>
             <div class="relative">
               <select id="assistant">
-                <option>HelloFresh</option>
-                <option>Podimo</option>
-                <option>Factor</option>
-                <option>Mofibo</option>
+                <option value="">Loading assistants...</option>
               </select>
+              <div id="assistant-loading" class="assistant-loading hidden">
+                <div class="spinner-sm"></div>
+              </div>
             </div>
             <a href="#" class="text-blue-600 mt-1" id="editAssistantListBtn">
               Edit Assistant List
             </a>
+            <div id="assistant-error" class="text-red-500 text-xs mt-1 hidden"></div>
           </div>
 
           <!-- Action Selection -->
@@ -378,6 +401,26 @@ function setupUIEventHandlers(composeWindow, emailThread) {
     });
   });
 
+  // Add refresh assistants button handler
+  const refreshBtn = modal.querySelector("#refreshAssistantsBtn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      // Show loading spinner
+      const loadingEl = document.getElementById("assistant-loading");
+      if (loadingEl) loadingEl.classList.remove("hidden");
+
+      // Clear error message
+      const errorEl = document.getElementById("assistant-error");
+      if (errorEl) {
+        errorEl.classList.add("hidden");
+        errorEl.textContent = "";
+      }
+
+      // Force refresh assistants
+      fetchOpenAIAssistants(true);
+    });
+  }
+
   // Populate email preview
   const emailPreview = modal.querySelector("#emailPreview");
   if (emailPreview) {
@@ -412,24 +455,35 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const generateBtn = modal.querySelector("#generateBtn");
   if (generateBtn) {
     generateBtn.addEventListener("click", () => {
+      // Get selected assistant ID
+      const assistantSelect = modal.querySelector("#assistant");
+      const assistantId = assistantSelect.value;
+
+      // Check if an assistant is selected
+      if (!assistantId) {
+        showAssistantError("Please select an assistant first");
+        return;
+      }
+
       showScreen("screen2");
 
-      const assistant = modal.querySelector("#assistant").value;
       const action = modal.querySelector("#action").value;
 
-      // Call background script to generate response
+      // Show loading indicator
+      const responseText = modal.querySelector("#responseText");
+      responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
+
+      // Call background script to generate response with the selected assistant
       chrome.runtime.sendMessage(
         {
           action: "generateResponse",
           data: {
-            assistant,
-            action,
-            emailThread,
+            assistantId: assistantId,
+            action: action,
+            emailThread: emailThread,
           },
         },
         (response) => {
-          const responseText = modal.querySelector("#responseText");
-
           if (response && response.success) {
             responseText.innerHTML = formatEmailResponse(response.response);
           } else {
@@ -563,6 +617,28 @@ function setupMessageListeners() {
       }
     }
 
+    // Handle generate response request
+    if (request.action === "generateResponse") {
+      const { assistantId, action, emailThread } = request.data;
+
+      // Simulate a response for now - this would be replaced with actual OpenAI API call
+      // In a real implementation, this would be handled in background.js
+      console.log(
+        `Generating response with assistant ${assistantId} and action ${action}`
+      );
+
+      // Mock response - replace with actual API call to OpenAI
+      setTimeout(() => {
+        sendResponse({
+          success: true,
+          response: `This response was generated using the OpenAI assistant with ID: ${assistantId}\n\nHi there,\n\nThanks for your email. I'm sending over the report as requested.\n\nLet me know if you need anything else.\n\nBest regards,`,
+        });
+      }, 2000);
+
+      // Return true to indicate we'll respond asynchronously
+      return true;
+    }
+
     return true;
   });
 }
@@ -679,33 +755,6 @@ function showScreen(screenId) {
 
   // Show the requested screen
   document.getElementById(screenId).classList.add("active");
-}
-
-// Function to open the assistant UI
-function openAssistantUI() {
-  // Get email thread content
-  const emailContent = getEmailThreadContent();
-
-  // Create modal if it doesn't exist
-  if (!document.getElementById("gmail-assistant-modal")) {
-    const modalContainer = document.createElement("div");
-    modalContainer.id = "gmail-assistant-modal";
-    modalContainer.className = "modal-container";
-    modalContainer.innerHTML = createAssistantUIHTML();
-    document.body.appendChild(modalContainer);
-
-    // Initialize event listeners
-    initAssistantUI();
-  } else {
-    // Show the modal
-    document.getElementById("gmail-assistant-modal").style.display = "flex";
-  }
-
-  // Make sure we start on screen 1
-  showScreen("screen1");
-
-  // Populate email preview
-  populateEmailPreview(emailContent);
 }
 
 // Function to close the assistant UI
@@ -978,6 +1027,12 @@ function showSettingsModal() {
       const apiKey = document.getElementById("apiKey").value;
 
       chrome.storage.local.set({ openai_api_key: apiKey }, function () {
+        console.log("API key saved. Fetching assistants...");
+
+        // Fetch assistants with the new API key
+        fetchOpenAIAssistants();
+
+        // Close the modal
         const modal = document.getElementById("settings-modal");
         if (modal) modal.remove();
       });
@@ -1073,3 +1128,200 @@ const buttonObserver = new MutationObserver(function (mutations) {
 
 // Start observing the body immediately
 buttonObserver.observe(document.body, { childList: true, subtree: true });
+
+// Function to fetch OpenAI assistants using the API key
+function fetchOpenAIAssistants(forceRefresh = false) {
+  console.log("Fetching OpenAI assistants...");
+
+  // Show loading indicator
+  const loadingEl = document.getElementById("assistant-loading");
+  if (loadingEl) loadingEl.classList.remove("hidden");
+
+  // Clear error message
+  const errorEl = document.getElementById("assistant-error");
+  if (errorEl) {
+    errorEl.classList.add("hidden");
+    errorEl.textContent = "";
+  }
+
+  // Get the API key from Chrome storage
+  chrome.storage.local.get(["openai_api_key"], function (result) {
+    if (!result.openai_api_key) {
+      console.error("No OpenAI API key found in storage");
+      showAssistantError(
+        "No API key found. Please add your OpenAI API key in settings."
+      );
+      return;
+    }
+
+    const apiKey = result.openai_api_key;
+
+    // Make API request to OpenAI to get assistants
+    fetch("https://api.openai.com/v1/assistants?limit=100", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "OpenAI-Beta": "assistants=v1",
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error(
+              "API key is invalid. Please check your API key in settings."
+            );
+          } else {
+            throw new Error(
+              `API request failed with status ${response.status}`
+            );
+          }
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("OpenAI assistants fetched:", data);
+
+        // Hide loading indicator
+        if (loadingEl) loadingEl.classList.add("hidden");
+
+        // Extract assistant data
+        const assistants = data.data || [];
+
+        // Save assistants to storage
+        chrome.storage.local.set(
+          { openai_assistants: assistants },
+          function () {
+            console.log("Assistants saved to storage:", assistants.length);
+
+            // Update dropdown if it exists
+            updateAssistantDropdown(assistants);
+          }
+        );
+      })
+      .catch((error) => {
+        console.error("Error fetching OpenAI assistants:", error);
+        showAssistantError(
+          error.message || "Failed to fetch assistants. Please try again."
+        );
+
+        // Hide loading indicator
+        if (loadingEl) loadingEl.classList.add("hidden");
+      });
+  });
+}
+
+// Function to update the assistant dropdown with fetched assistants
+function updateAssistantDropdown(assistants) {
+  const dropdown = document.getElementById("assistant");
+  if (!dropdown) return;
+
+  // Clear existing options
+  dropdown.innerHTML = "";
+
+  // Add a default option
+  const defaultOption = document.createElement("option");
+  defaultOption.textContent = "Select an assistant...";
+  defaultOption.value = "";
+  dropdown.appendChild(defaultOption);
+
+  // Add assistants to dropdown
+  assistants.forEach((assistant) => {
+    const option = document.createElement("option");
+    option.value = assistant.id;
+    option.textContent =
+      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+    dropdown.appendChild(option);
+  });
+
+  // Notify user if no assistants are available
+  if (assistants.length === 0) {
+    const noAssistantsOption = document.createElement("option");
+    noAssistantsOption.textContent =
+      "No assistants found - create one in OpenAI dashboard";
+    noAssistantsOption.disabled = true;
+    dropdown.appendChild(noAssistantsOption);
+  }
+}
+
+// Function to populate assistant dropdown from storage or fetch if needed
+function populateAssistantDropdown() {
+  chrome.storage.local.get(["openai_assistants"], function (result) {
+    if (result.openai_assistants && result.openai_assistants.length > 0) {
+      // Use cached assistants
+      updateAssistantDropdown(result.openai_assistants);
+    } else {
+      // Fetch assistants if none in storage
+      fetchOpenAIAssistants();
+    }
+  });
+}
+
+// Function to show error message for assistant dropdown
+function showAssistantError(errorMessage) {
+  const errorEl = document.getElementById("assistant-error");
+  if (errorEl) {
+    errorEl.textContent = errorMessage;
+    errorEl.classList.remove("hidden");
+  }
+}
+
+// Add some styles for the refresh button and loading spinner
+function addAssistantStyles() {
+  const style = document.createElement("style");
+  style.textContent = `
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid #e0e0e0;
+      background: white;
+      color: #1a73e8;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+    .refresh-btn:hover {
+      background: #f0f0f0;
+    }
+    .assistant-loading {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .spinner-sm {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(26, 115, 232, 0.2);
+      border-radius: 50%;
+      border-top-color: #1a73e8;
+      animation: spinner-rotate 1s linear infinite;
+    }
+    .hidden {
+      display: none;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Add a function to check API key and show settings if missing
+function checkAPIKeyAndAssistants() {
+  chrome.storage.local.get(
+    ["openai_api_key", "openai_assistants"],
+    function (result) {
+      if (!result.openai_api_key) {
+        console.log("No API key found, showing settings");
+        showSettingsModal();
+        return;
+      }
+
+      if (!result.openai_assistants || result.openai_assistants.length === 0) {
+        console.log("No assistants found, fetching from API");
+        fetchOpenAIAssistants();
+      }
+    }
+  );
+}
