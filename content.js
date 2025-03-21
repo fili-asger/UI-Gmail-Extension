@@ -1204,15 +1204,20 @@ function fetchOpenAIAssistants(forceRefresh = false) {
     const apiKey = result.openai_api_key;
     console.log("Using API key with prefix:", apiKey.substring(0, 8) + "...");
 
-    // Use simpler API call with just the API key
+    // Use the API call with the required beta header
     const apiUrl = "https://api.openai.com/v1/assistants";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      // No version header, use the API's default
+      "OpenAI-Beta": "assistants=v2", // Add the required beta header exactly as specified in the error
     };
 
-    console.log("Making API call to:", apiUrl);
+    console.log(
+      "Making API call to:",
+      apiUrl,
+      "with beta header:",
+      headers["OpenAI-Beta"]
+    );
 
     // Make API request to OpenAI to get assistants
     fetch(apiUrl, {
@@ -1246,7 +1251,7 @@ function fetchOpenAIAssistants(forceRefresh = false) {
         return response.json();
       })
       .then((data) => {
-        console.log("OpenAI assistants fetched successfully");
+        console.log("OpenAI assistants fetched successfully:", data);
 
         // Hide loading indicator
         if (loadingEl) loadingEl.classList.add("hidden");
