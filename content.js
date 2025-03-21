@@ -284,10 +284,7 @@ function createAssistantUIHTML(emailThread) {
             </div>
             <div class="relative">
               <select id="action">
-                <option>Accept</option>
-                <option>Reject</option>
-                <option>Negotiate</option>
-                <option>Help</option>
+                <option value="">Loading actions...</option>
               </select>
             </div>
             <a href="#" class="text-blue-600 mt-1" id="editActionListBtn">
@@ -599,7 +596,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editActionListBtn = modal.querySelector("#editActionListBtn");
   if (editActionListBtn) {
     editActionListBtn.addEventListener("click", () => {
-      alert("Action management will be added in a future update");
+      // Call the manage actions modal
+      showManageActionsModal();
     });
   }
 }
@@ -807,10 +805,8 @@ function initAssistantUI() {
   // Edit action list button event
   document.addEventListener("click", function (e) {
     if (e.target.id === "editActionListBtn") {
-      // Will be handled in the main modal
-      alert(
-        "Action management will be added directly to the extension in a future update"
-      );
+      // Call the manage actions modal
+      showManageActionsModal();
     }
   });
 
@@ -2108,44 +2104,278 @@ function formatEmailThreadForPrompt(emailThread, action) {
   return prompt;
 }
 
-// Add a function to load cached assistants
+// Function to load cached assistants from local storage
 function loadCachedAssistants() {
-  chrome.storage.local.get(
-    ["openai_api_key", "openai_assistants", "selected_assistants"],
-    function (result) {
-      if (!result.openai_api_key) {
-        console.log("No API key found, showing settings");
-        showSettingsModal();
-        return;
+  chrome.storage.local.get(["openai_assistants", "actions"], function (result) {
+    // Update the assistant dropdown with cached assistants
+    if (result.openai_assistants && result.openai_assistants.length > 0) {
+      const assistantSelect = document.getElementById("assistant");
+      if (assistantSelect) {
+        assistantSelect.innerHTML = "";
+        result.openai_assistants.forEach((assistant) => {
+          const option = document.createElement("option");
+          option.value = assistant.id;
+          option.textContent =
+            assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+          assistantSelect.appendChild(option);
+        });
       }
-
-      // If we have cached assistants, use them
-      if (result.openai_assistants && result.openai_assistants.length > 0) {
-        console.log(
-          "Using cached assistants:",
-          result.openai_assistants.length
-        );
-
-        // Use selected assistants if available, otherwise default all to selected
-        let selectedAssistants = result.selected_assistants || {};
-        if (Object.keys(selectedAssistants).length === 0) {
-          result.openai_assistants.forEach((assistant) => {
-            selectedAssistants[assistant.id] = true;
-          });
-          // Save this initial selection
-          chrome.storage.local.set({ selected_assistants: selectedAssistants });
-        }
-
-        // Update the dropdown with cached assistants and selection
-        updateAssistantDropdownWithSelection(
-          result.openai_assistants,
-          selectedAssistants
-        );
-      } else {
-        // No cached assistants, fetch them (first-time use case)
-        console.log("No cached assistants found, fetching from API");
-        fetchOpenAIAssistants(false);
-      }
+    } else {
+      // If no cached assistants, fetch from API
+      fetchOpenAIAssistants();
     }
-  );
+
+    // Update the actions dropdown with cached actions
+    if (result.actions && result.actions.length > 0) {
+      updateActionDropdown(result.actions);
+    } else {
+      // If no cached actions, use defaults
+      const defaultActions = [
+        "No action specified",
+        "Accept",
+        "Reject",
+        "Negotiate",
+        "Help",
+      ];
+      chrome.storage.local.set({ actions: defaultActions }, function () {
+        updateActionDropdown(defaultActions);
+      });
+    }
+  });
+}
+
+// Function to show the manage actions modal
+function showManageActionsModal() {
+  console.log("Showing manage actions modal");
+
+  // Remove any existing manage actions modal first
+  const existingModal = document.getElementById("manage-actions-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create the modal element
+  const manageModal = document.createElement("div");
+  manageModal.id = "manage-actions-modal";
+  manageModal.className = "settings-modal active";
+
+  // Force visibility with inline styles
+  manageModal.style.cssText = `
+    position: fixed !important;
+    display: flex !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.5) !important;
+    z-index: 9999999 !important;
+    justify-content: center !important;
+    align-items: center !important;
+  `;
+
+  // Get actions from storage
+  chrome.storage.local.get(["actions"], function (result) {
+    let actions = result.actions || [];
+
+    // If no actions exist yet, use defaults
+    if (actions.length === 0) {
+      actions = ["Accept", "Reject", "Negotiate", "Help"];
+    }
+
+    // Create the modal content
+    let modalContent = `
+    <div class="modal-content" style="background: white; border-radius: 8px; width: 500px; max-width: 90%; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <!-- Header -->
+      <div class="gmail-header" style="background-color: #4285f4; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 22px; margin: 0;">Manage Actions</h2>
+        <button id="close-manage-actions-btn" class="close-btn" style="background: none; border: none; color: white; cursor: pointer;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Actions List -->
+      <div id="actions-list-container" style="max-height: 400px; overflow-y: auto; padding: 16px 24px 0;">
+        <div id="actions-list" style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px;">
+    `;
+
+    // Add each action as an item with delete button
+    actions.forEach((action, index) => {
+      modalContent += `
+      <div class="action-item" data-action="${action}" style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 4px; justify-content: space-between;">
+        <span style="font-size: 16px; color: #333;">${action}</span>
+        <button class="delete-action-btn" data-index="${index}" style="background: none; border: none; color: #888; cursor: pointer;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
+            <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+          </svg>
+        </button>
+      </div>
+      `;
+    });
+
+    // Add a message if no actions
+    if (actions.length === 0) {
+      modalContent += `
+      <div style="text-align: center; padding: 20px 0; color: #666;">
+        No actions found. Add an action below.
+      </div>
+    `;
+    }
+
+    // Add the add new action button
+    modalContent += `
+        </div>
+        <div style="padding: 16px 0; border-top: 1px solid #e0e0e0; margin-top: 16px;">
+          <button id="add-action-btn" style="width: 100%; padding: 12px; text-align: center; display: flex; align-items: center; justify-content: center; background: white; border: 1px dashed #4285f4; border-radius: 4px; color: #4285f4; cursor: pointer; font-size: 16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add New Action
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="border-top: 1px solid #e0e0e0; padding: 16px 24px; display: flex; justify-content: space-between; background: white;">
+        <button id="cancel-manage-actions-btn" style="padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; cursor: pointer;">
+          Cancel
+        </button>
+        <button id="save-manage-actions-btn" style="padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer;">
+          Save
+        </button>
+      </div>
+    </div>
+    `;
+
+    // Set the modal content and add to document
+    manageModal.innerHTML = modalContent;
+    document.body.appendChild(manageModal);
+
+    // Set up event handlers
+    setupManageActionsEventHandlers(manageModal, actions);
+  });
+}
+
+// Setup event handlers for the manage actions modal
+function setupManageActionsEventHandlers(modal, actions) {
+  // Close button
+  const closeBtn = modal.querySelector("#close-manage-actions-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      modal.remove();
+    });
+  }
+
+  // Cancel button
+  const cancelBtn = modal.querySelector("#cancel-manage-actions-btn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      modal.remove();
+    });
+  }
+
+  // Save button
+  const saveBtn = modal.querySelector("#save-manage-actions-btn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      // Get all action items
+      const actionItems = modal.querySelectorAll(".action-item");
+      const updatedActions = Array.from(actionItems).map((item) =>
+        item.getAttribute("data-action")
+      );
+
+      // Make sure we have the "No action specified" option
+      if (!updatedActions.includes("No action specified")) {
+        updatedActions.unshift("No action specified");
+      }
+
+      // Save to local storage
+      chrome.storage.local.set({ actions: updatedActions }, function () {
+        // Update the action dropdown
+        updateActionDropdown(updatedActions);
+
+        // Close the modal
+        modal.remove();
+      });
+    });
+  }
+
+  // Add action button
+  const addActionBtn = modal.querySelector("#add-action-btn");
+  if (addActionBtn) {
+    addActionBtn.addEventListener("click", () => {
+      // Prompt for new action name
+      const newAction = prompt("Enter new action name:");
+
+      if (newAction && newAction.trim() !== "") {
+        // Create a new action item
+        const actionsList = modal.querySelector("#actions-list");
+        const newIndex = modal.querySelectorAll(".action-item").length;
+
+        const actionItem = document.createElement("div");
+        actionItem.className = "action-item";
+        actionItem.setAttribute("data-action", newAction.trim());
+        actionItem.style.cssText =
+          "display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 4px; justify-content: space-between;";
+
+        actionItem.innerHTML = `
+          <span style="font-size: 16px; color: #333;">${newAction.trim()}</span>
+          <button class="delete-action-btn" data-index="${newIndex}" style="background: none; border: none; color: #888; cursor: pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
+              <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+            </svg>
+          </button>
+        `;
+
+        // Add delete event handler
+        const deleteBtn = actionItem.querySelector(".delete-action-btn");
+        deleteBtn.addEventListener("click", (e) => {
+          e.target.closest(".action-item").remove();
+        });
+
+        // Add to the list
+        actionsList.appendChild(actionItem);
+      }
+    });
+  }
+
+  // Delete action buttons
+  const deleteButtons = modal.querySelectorAll(".delete-action-btn");
+  deleteButtons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.target.closest(".action-item").remove();
+    });
+  });
+}
+
+// Function to update the action dropdown with the new actions
+function updateActionDropdown(actions) {
+  const actionSelect = document.getElementById("action");
+  if (actionSelect) {
+    // Save the currently selected value if possible
+    const currentValue = actionSelect.value;
+
+    // Clear the dropdown
+    actionSelect.innerHTML = "";
+
+    // Add all options
+    actions.forEach((action) => {
+      const option = document.createElement("option");
+      option.value = action;
+      option.textContent = action;
+      actionSelect.appendChild(option);
+    });
+
+    // Try to restore the previous selection
+    if (actions.includes(currentValue)) {
+      actionSelect.value = currentValue;
+    }
+  }
 }
