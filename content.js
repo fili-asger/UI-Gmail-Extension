@@ -87,25 +87,42 @@ function insertAssistantButton(toolbar, composeWindow) {
   // Create our button in the Gmail style
   const buttonDiv = document.createElement("div");
   buttonDiv.className = "wG J-Z-I assistant-btn-container";
+  buttonDiv.id = "gmail-assistant-btn"; // Add an ID for easier targeting
   buttonDiv.setAttribute("data-tooltip", "AI Assistant");
   buttonDiv.setAttribute("aria-label", "AI Assistant");
   buttonDiv.setAttribute("tabindex", "1");
   buttonDiv.setAttribute("role", "button");
+
+  // Ensure we can find this button with CSS later
+  buttonDiv.style.position = "relative";
+  buttonDiv.style.zIndex = "10";
 
   // Use a simple div with background image instead of HTML content
   const button = document.createElement("div");
   button.className = "assistant-btn";
   buttonDiv.appendChild(button);
 
-  // Add click event
-  buttonDiv.addEventListener("click", (e) => {
+  // Add click event with direct modal opening
+  buttonDiv.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
-    openAssistantUI(composeWindow);
-  });
+    console.log("Assistant button clicked in toolbar");
+
+    // Try opening the settings modal first if no API key
+    chrome.storage.local.get(["openai_api_key"], function (result) {
+      if (!result.openai_api_key) {
+        console.log("No API key, showing settings modal first");
+        showSettingsModal();
+      } else {
+        openAssistantUI(composeWindow);
+      }
+    });
+    return false;
+  };
 
   // Insert button into toolbar
   attachmentsSection.appendChild(buttonDiv);
+  console.log("Assistant button added to toolbar");
 }
 
 // Open the assistant UI
@@ -939,6 +956,8 @@ function autoDetectAction() {
 
 // Function to show the settings modal
 function showSettingsModal() {
+  console.log("showSettingsModal called");
+
   // Remove any existing settings modal first
   const existingModal = document.getElementById("settings-modal");
   if (existingModal) {
@@ -968,9 +987,14 @@ function showSettingsModal() {
       <!-- Settings Content -->
       <div class="p-4 space-y-4">
         <div>
-          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
+          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
           <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
           <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
+          <p class="mt-1 text-xs text-blue-500">
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+              Get your API key from OpenAI →
+            </a>
+          </p>
         </div>
       </div>
 
@@ -999,6 +1023,7 @@ function showSettingsModal() {
 
   // Add the modal to document
   document.body.appendChild(settingsModal);
+  console.log("Settings modal added to DOM:", settingsModal);
 
   // Load API key from storage immediately
   chrome.storage.local.get(["openai_api_key"], function (result) {
@@ -1024,7 +1049,18 @@ function showSettingsModal() {
     saveBtn.onclick = function (e) {
       e.preventDefault();
       e.stopPropagation();
-      const apiKey = document.getElementById("apiKey").value;
+
+      const apiKeyInput = document.getElementById("apiKey");
+      const apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+
+      if (!apiKey) {
+        // Highlight the input field if empty
+        if (apiKeyInput) {
+          apiKeyInput.style.borderColor = "red";
+          apiKeyInput.focus();
+        }
+        return;
+      }
 
       chrome.storage.local.set({ openai_api_key: apiKey }, function () {
         console.log("API key saved. Fetching assistants...");
