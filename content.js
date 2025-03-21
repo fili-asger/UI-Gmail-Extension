@@ -502,26 +502,22 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       const responseText = modal.querySelector("#responseText");
       responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
 
-      // Call background script to generate response with the selected assistant
-      chrome.runtime.sendMessage(
-        {
-          action: "generateResponse",
-          data: {
-            assistantId: assistantId,
-            action: action,
-            emailThread: emailThread,
-          },
-        },
-        (response) => {
-          if (response && response.success) {
-            responseText.innerHTML = formatEmailResponse(response.response);
-          } else {
-            responseText.innerHTML = `<p class="text-red-500">Error: ${
-              response?.error || "Failed to generate response"
-            }</p>`;
-          }
+      // Get the API key from storage first
+      chrome.storage.local.get(["openai_api_key"], function (result) {
+        if (!result.openai_api_key) {
+          responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
+          return;
         }
-      );
+
+        // We have an API key, now call the OpenAI API directly
+        generateResponseWithAssistant(
+          result.openai_api_key,
+          assistantId,
+          action,
+          emailThread,
+          responseText
+        );
+      });
     });
   }
 
@@ -1766,4 +1762,263 @@ function checkAPIKeyAndAssistants() {
       }
     }
   );
+}
+
+// Add function to generate a response using OpenAI Assistants API
+async function generateResponseWithAssistant(
+  apiKey,
+  assistantId,
+  action,
+  emailThread,
+  responseElement
+) {
+  console.log(
+    `Generating response with assistant ${assistantId} and action "${action}"`
+  );
+
+  try {
+    // Format the email thread data for the prompt
+    const emailContent = formatEmailThreadForPrompt(emailThread, action);
+
+    // Step 1: Create a thread
+    const threadResponse = await fetch("https://api.openai.com/v1/threads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "OpenAI-Beta": "assistants=v2",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!threadResponse.ok) {
+      const errorData = await threadResponse.json();
+      throw new Error(
+        `Failed to create thread: ${
+          errorData.error?.message || threadResponse.statusText
+        }`
+      );
+    }
+
+    const threadData = await threadResponse.json();
+    const threadId = threadData.id;
+    console.log("Thread created:", threadId);
+
+    // Step 2: Add a message to the thread
+    const messageResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+        body: JSON.stringify({
+          role: "user",
+          content: emailContent,
+        }),
+      }
+    );
+
+    if (!messageResponse.ok) {
+      const errorData = await messageResponse.json();
+      throw new Error(
+        `Failed to add message: ${
+          errorData.error?.message || messageResponse.statusText
+        }`
+      );
+    }
+
+    console.log("Message added to thread");
+
+    // Step 3: Run the assistant on the thread
+    const runResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadId}/runs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+        body: JSON.stringify({
+          assistant_id: assistantId,
+        }),
+      }
+    );
+
+    if (!runResponse.ok) {
+      const errorData = await runResponse.json();
+      throw new Error(
+        `Failed to run assistant: ${
+          errorData.error?.message || runResponse.statusText
+        }`
+      );
+    }
+
+    const runData = await runResponse.json();
+    const runId = runData.id;
+    console.log("Assistant run started:", runId);
+
+    // Step 4: Poll for the run completion
+    await pollRunStatus(apiKey, threadId, runId, responseElement);
+  } catch (error) {
+    console.error("Error generating response:", error);
+    responseElement.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+  }
+}
+
+// Add function to poll the run status
+async function pollRunStatus(apiKey, threadId, runId, responseElement) {
+  try {
+    let completed = false;
+    let attempts = 0;
+    const maxAttempts = 30; // Prevent infinite polling
+
+    while (!completed && attempts < maxAttempts) {
+      attempts++;
+
+      // Wait a bit between polls (2 seconds)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Check run status
+      const statusResponse = await fetch(
+        `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "OpenAI-Beta": "assistants=v2",
+          },
+        }
+      );
+
+      if (!statusResponse.ok) {
+        const errorData = await statusResponse.json();
+        throw new Error(
+          `Failed to check run status: ${
+            errorData.error?.message || statusResponse.statusText
+          }`
+        );
+      }
+
+      const statusData = await statusResponse.json();
+      console.log("Run status:", statusData.status);
+
+      if (statusData.status === "completed") {
+        completed = true;
+        // Get the assistant's response messages
+        await getAssistantResponse(apiKey, threadId, responseElement);
+      } else if (
+        statusData.status === "failed" ||
+        statusData.status === "cancelled" ||
+        statusData.status === "expired"
+      ) {
+        throw new Error(
+          `Run ${statusData.status}: ${
+            statusData.last_error?.message || "Unknown error"
+          }`
+        );
+      }
+
+      // If we're still running, update the UI to show progress
+      if (!completed && attempts % 3 === 0) {
+        responseElement.innerHTML = `
+          <div class="spinner-container">
+            <div class="spinner"></div>
+            <p class="mt-3 text-gray-500">Still thinking... (${
+              attempts * 2
+            }s)</p>
+          </div>
+        `;
+      }
+    }
+
+    if (!completed) {
+      throw new Error("Response generation timed out. Please try again.");
+    }
+  } catch (error) {
+    console.error("Error polling run status:", error);
+    responseElement.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+  }
+}
+
+// Add function to get the assistant's response
+async function getAssistantResponse(apiKey, threadId, responseElement) {
+  try {
+    const messagesResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadId}/messages?limit=1`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+      }
+    );
+
+    if (!messagesResponse.ok) {
+      const errorData = await messagesResponse.json();
+      throw new Error(
+        `Failed to get messages: ${
+          errorData.error?.message || messagesResponse.statusText
+        }`
+      );
+    }
+
+    const messagesData = await messagesResponse.json();
+
+    // Extract the assistant's last message
+    const assistantMessages = messagesData.data.filter(
+      (msg) => msg.role === "assistant"
+    );
+    if (assistantMessages.length === 0) {
+      throw new Error("No response received from assistant");
+    }
+
+    // Get the content from the latest assistant message
+    const latestMessage = assistantMessages[0];
+    let responseContent = "";
+
+    // Extract text from the message content (handling different content formats)
+    if (latestMessage.content && latestMessage.content.length > 0) {
+      for (const contentItem of latestMessage.content) {
+        if (contentItem.type === "text") {
+          responseContent += contentItem.text.value + "\n\n";
+        }
+      }
+    }
+
+    if (!responseContent) {
+      throw new Error("Empty response received from assistant");
+    }
+
+    console.log("Assistant response received");
+
+    // Display the response
+    responseElement.innerHTML = formatEmailResponse(responseContent.trim());
+  } catch (error) {
+    console.error("Error getting assistant response:", error);
+    responseElement.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+  }
+}
+
+// Function to format the email thread data for the prompt
+function formatEmailThreadForPrompt(emailThread, action) {
+  let prompt = `I'm using you to help me respond to an email thread. The action I want to take is: "${action}"\n\n`;
+
+  prompt += `Subject: ${emailThread.subject}\n\n`;
+
+  // Add each message in the thread
+  emailThread.thread.forEach((message, index) => {
+    prompt += `--- Message ${index + 1} ---\n`;
+    prompt += `From: ${message.from}\n`;
+    prompt += `To: ${message.to}\n\n`;
+    prompt += `${message.content}\n\n`;
+  });
+
+  prompt += `Based on this email thread, please generate a professional response that I can use to reply. The tone should be appropriate for the action "${action}".`;
+
+  return prompt;
 }
