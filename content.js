@@ -604,16 +604,14 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const editAssistantListBtn = modal.querySelector("#editAssistantListBtn");
   if (editAssistantListBtn) {
     editAssistantListBtn.addEventListener("click", () => {
-      // Fetch the latest assistants before showing the modal
+      // Show modal immediately with loading state
+      showManageAssistantsModal(true);
+
+      // Then fetch the latest assistants
       console.log("Edit Assistant List clicked, fetching latest assistants");
-
-      // Show a loading indicator if we have one
-      const loadingEl = document.getElementById("assistant-loading");
-      if (loadingEl) loadingEl.classList.remove("hidden");
-
       fetchOpenAIAssistants(true, function () {
-        // Show the manage assistants modal after fetching
-        showManageAssistantsModal();
+        // Update the modal with assistants after fetching
+        showManageAssistantsModal(false);
       });
     });
   }
@@ -1511,8 +1509,8 @@ function showAssistantError(errorMessage) {
 }
 
 // Add this new function to show the manage assistants modal
-function showManageAssistantsModal() {
-  console.log("Showing manage assistants modal");
+function showManageAssistantsModal(loading = false) {
+  console.log("Showing manage assistants modal, loading:", loading);
 
   // Remove any existing manage assistants modal first
   const existingModal = document.getElementById("manage-assistants-modal");
@@ -1539,7 +1537,53 @@ function showManageAssistantsModal() {
     align-items: center !important;
   `;
 
-  // Get assistants from storage
+  // If loading, show a loading spinner
+  if (loading) {
+    const loadingContent = `
+      <div class="modal-content" style="background: white; border-radius: 8px; width: 500px; max-width: 90%; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <!-- Header -->
+        <div class="gmail-header" style="background-color: #4285f4; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 22px; margin: 0;">Manage Assistants</h2>
+          <button id="close-manage-assistants-btn" class="close-btn" style="background: none; border: none; color: white; cursor: pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading spinner -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 2rem;">
+          <div style="width: 40px; height: 40px; border: 3px solid rgba(66, 133, 244, 0.2); border-top-color: #4285f4; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <p style="margin-top: 1rem; color: #666;">Loading assistants...</p>
+        </div>
+      </div>
+    `;
+
+    manageModal.innerHTML = loadingContent;
+    document.body.appendChild(manageModal);
+
+    // Add animation style
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Add close button handler
+    const closeBtn = manageModal.querySelector("#close-manage-assistants-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        manageModal.remove();
+      });
+    }
+
+    return;
+  }
+
+  // Get assistants from storage for non-loading state
   chrome.storage.local.get(
     ["openai_assistants", "selected_assistants"],
     function (result) {
@@ -1553,7 +1597,7 @@ function showManageAssistantsModal() {
         });
       }
 
-      // Create the modal content
+      // Create the modal content for regular view
       let modalContent = `
       <div class="modal-content" style="background: white; border-radius: 8px; width: 500px; max-width: 90%; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
         <!-- Header -->
@@ -2132,42 +2176,50 @@ function formatEmailThreadForPrompt(emailThread, action) {
 
 // Function to load cached assistants from local storage
 function loadCachedAssistants() {
-  chrome.storage.local.get(["openai_assistants", "actions"], function (result) {
-    // Update the assistant dropdown with cached assistants
-    if (result.openai_assistants && result.openai_assistants.length > 0) {
-      const assistantSelect = document.getElementById("assistant");
-      if (assistantSelect) {
-        assistantSelect.innerHTML = "";
-        result.openai_assistants.forEach((assistant) => {
-          const option = document.createElement("option");
-          option.value = assistant.id;
-          option.textContent =
-            assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
-          assistantSelect.appendChild(option);
+  chrome.storage.local.get(
+    ["openai_assistants", "actions", "selected_assistants"],
+    function (result) {
+      // Update the assistant dropdown with cached assistants
+      if (result.openai_assistants && result.openai_assistants.length > 0) {
+        const selectedAssistants = result.selected_assistants || {};
+
+        // If no selections exist yet, default to all assistants selected
+        if (Object.keys(selectedAssistants).length === 0) {
+          result.openai_assistants.forEach((assistant) => {
+            selectedAssistants[assistant.id] = true;
+          });
+          // Save this initial selection
+          chrome.storage.local.set({ selected_assistants: selectedAssistants });
+        }
+
+        // Update the dropdown using the selection
+        updateAssistantDropdownWithSelection(
+          result.openai_assistants,
+          selectedAssistants
+        );
+      } else {
+        // If no cached assistants, fetch from API
+        fetchOpenAIAssistants();
+      }
+
+      // Update the actions dropdown with cached actions
+      if (result.actions && result.actions.length > 0) {
+        updateActionDropdown(result.actions);
+      } else {
+        // If no cached actions, use defaults
+        const defaultActions = [
+          "No action specified",
+          "Accept",
+          "Reject",
+          "Negotiate",
+          "Help",
+        ];
+        chrome.storage.local.set({ actions: defaultActions }, function () {
+          updateActionDropdown(defaultActions);
         });
       }
-    } else {
-      // If no cached assistants, fetch from API
-      fetchOpenAIAssistants();
     }
-
-    // Update the actions dropdown with cached actions
-    if (result.actions && result.actions.length > 0) {
-      updateActionDropdown(result.actions);
-    } else {
-      // If no cached actions, use defaults
-      const defaultActions = [
-        "No action specified",
-        "Accept",
-        "Reject",
-        "Negotiate",
-        "Help",
-      ];
-      chrome.storage.local.set({ actions: defaultActions }, function () {
-        updateActionDropdown(defaultActions);
-      });
-    }
-  });
+  );
 }
 
 // Function to show the manage actions modal
