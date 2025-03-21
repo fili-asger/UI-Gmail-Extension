@@ -2,6 +2,32 @@
 
 console.log("Gmail Assistant Extension loaded");
 
+// Safe storage utility function to handle Chrome storage API safely
+function safeStorage() {
+  const isAvailable =
+    typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
+
+  return {
+    get: function (keys, callback) {
+      if (isAvailable) {
+        chrome.storage.local.get(keys, callback);
+      } else {
+        console.warn("Chrome storage API not available for get operation");
+        callback({});
+      }
+    },
+    set: function (items, callback) {
+      if (isAvailable) {
+        chrome.storage.local.set(items, callback);
+      } else {
+        console.warn("Chrome storage API not available for set operation");
+        if (callback) callback();
+      }
+    },
+    isAvailable: isAvailable,
+  };
+}
+
 // Main function to initialize the extension
 function initExtension() {
   // Check if we're in Gmail
@@ -99,8 +125,8 @@ function insertAssistantButton(toolbar, composeWindow) {
   buttonDiv.addEventListener("click", function () {
     console.log("Assistant button clicked in toolbar - direct handler");
 
-    // Try opening the settings modal first if no API key
-    chrome.storage.local.get(["openai_api_key"], function (result) {
+    // Use safe storage utility to check for API key
+    safeStorage().get(["openai_api_key"], function (result) {
       if (!result.openai_api_key) {
         console.log("No API key, showing settings modal first");
         showSettingsModal();
