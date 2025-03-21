@@ -148,6 +148,17 @@ function openAssistantUI(composeWindow) {
     overflow: hidden !important;
   `;
 
+  // Format the email thread data and populate the email preview
+  const formattedEmailContent = {
+    subject: emailThread.subject,
+    messages: emailThread.thread.map((message) => ({
+      sender: message.from,
+      recipient: message.to,
+      content: formatEmailContent(message.content),
+    })),
+  };
+  populateEmailPreview(formattedEmailContent);
+
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
 
@@ -288,21 +299,7 @@ function createAssistantUIHTML(emailThread) {
           <div>
             <label>Email Thread</label>
             <div id="emailPreview" style="height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; background-color: #f9f9f9;">
-              <!-- This will be populated with the email thread content -->
-              <div class="email-sender">John Doe &lt;john.doe@example.com&gt;</div>
-              <div class="email-recipient">To: me</div>
-              <div class="email-subject">Subject: Meeting Follow-up</div>
-              <div class="email-content">
-                <p>Hi there,</p>
-                <p>I wanted to follow up on our meeting yesterday. Could you please send me the report we discussed?</p>
-                <p>Best regards,<br>John</p>
-              </div>
-              <hr style="margin: 15px 0; border: none; border-top: 1px solid #dcdfe3;">
-              <div class="email-sender">Me &lt;myemail@example.com&gt;</div>
-              <div class="email-recipient">To: John Doe</div>
-              <div class="email-content">
-                <p>Hi John,</p>
-              </div>
+              <!-- Will be populated by populateEmailPreview function -->
             </div>
           </div>
         </div>
@@ -368,6 +365,43 @@ function createAssistantUIHTML(emailThread) {
   `;
 }
 
+// Helper function to generate HTML for the email thread preview
+function generateEmailThreadHTML(emailThread) {
+  if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
+    return '<div class="email-content"><p>No email thread content available.</p></div>';
+  }
+
+  let html = `<div class="email-subject">Subject: ${emailThread.subject}</div>`;
+
+  emailThread.thread.forEach((message, index) => {
+    if (index > 0) {
+      html +=
+        '<hr style="margin: 15px 0; border: none; border-top: 1px solid #dcdfe3;">';
+    }
+
+    html += `
+      <div class="email-sender">${message.from}</div>
+      <div class="email-recipient">To: ${message.to}</div>
+      <div class="email-content">
+        ${formatEmailContent(message.content)}
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+// Helper function to format email content with proper paragraphs
+function formatEmailContent(content) {
+  if (!content) return "<p>No content</p>";
+
+  // Split by newlines and create paragraphs
+  return content
+    .split(/\n\n+/)
+    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 // Create HTML for the settings modal
 function createSettingsModalHTML() {
   return `
@@ -387,14 +421,19 @@ function createSettingsModalHTML() {
       <!-- Content -->
       <div class="p-4 space-y-4">
         <div>
-          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">ChatGPT API Key</label>
+          <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
           <input type="password" id="apiKey" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" placeholder="sk-...">
           <p class="mt-1 text-xs text-gray-500">Your API key is stored locally and never sent to our servers.</p>
+          <p class="mt-1 text-xs text-blue-500">
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+              Get your API key from OpenAI →
+            </a>
+          </p>
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="bg-gray-50 px-4 py-3 flex justify-end">
+      <!-- Settings Footer -->
+      <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
         <button id="saveSettingsBtn" class="gmail-button">
           Save
         </button>
@@ -816,22 +855,6 @@ function populateEmailPreview(emailContent) {
     // Clear previous content
     emailPreviewElem.innerHTML = "";
 
-    // Add sender info
-    if (emailContent.sender) {
-      const senderElem = document.createElement("div");
-      senderElem.className = "email-sender";
-      senderElem.textContent = emailContent.sender;
-      emailPreviewElem.appendChild(senderElem);
-    }
-
-    // Add recipient info
-    if (emailContent.recipient) {
-      const recipientElem = document.createElement("div");
-      recipientElem.className = "email-recipient";
-      recipientElem.textContent = `To: ${emailContent.recipient}`;
-      emailPreviewElem.appendChild(recipientElem);
-    }
-
     // Add subject info
     if (emailContent.subject) {
       const subjectElem = document.createElement("div");
@@ -849,6 +872,22 @@ function populateEmailPreview(emailContent) {
           separator.style =
             "margin: 15px 0; border: none; border-top: 1px solid #dcdfe3;";
           emailPreviewElem.appendChild(separator);
+        }
+
+        // Add sender info
+        if (message.sender) {
+          const senderElem = document.createElement("div");
+          senderElem.className = "email-sender";
+          senderElem.textContent = message.sender;
+          emailPreviewElem.appendChild(senderElem);
+        }
+
+        // Add recipient info
+        if (message.recipient) {
+          const recipientElem = document.createElement("div");
+          recipientElem.className = "email-recipient";
+          recipientElem.textContent = `To: ${message.recipient}`;
+          emailPreviewElem.appendChild(recipientElem);
         }
 
         // Add message content
