@@ -1193,12 +1193,12 @@ function fetchOpenAIAssistants(forceRefresh = false) {
     const apiKey = result.openai_api_key;
     console.log("Using API key with prefix:", apiKey.substring(0, 8) + "...");
 
-    // Use the API call with the required beta header
-    const apiUrl = "https://api.openai.com/v1/assistants";
+    // Use the API call with the required beta header and a higher limit
+    const apiUrl = "https://api.openai.com/v1/assistants?limit=100&order=desc";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v2", // Add the required beta header exactly as specified in the error
+      "OpenAI-Beta": "assistants=v2", // Add the required beta header
     };
 
     console.log(
@@ -1248,23 +1248,82 @@ function fetchOpenAIAssistants(forceRefresh = false) {
         // Extract assistant data
         const assistants = data.data || [];
 
-        // Show message if no assistants are found
-        if (assistants.length === 0) {
-          showAssistantError(
-            "No assistants found in your OpenAI account. Please create at least one assistant in the OpenAI dashboard."
-          );
-        }
+        // Check if we need to fetch more assistants (pagination)
+        let allAssistants = [...assistants];
 
-        // Save assistants to storage
-        chrome.storage.local.set(
-          { openai_assistants: assistants },
-          function () {
-            console.log("Assistants saved to storage:", assistants.length);
-
-            // Update dropdown if it exists
-            updateAssistantDropdown(assistants);
+        const fetchMoreAssistants = (nextUrl) => {
+          if (!nextUrl) {
+            // We've fetched all assistants, now update UI
+            finishAssistantsFetch(allAssistants);
+            return;
           }
-        );
+
+          // Extract the full URL if it's a relative URL
+          const fullUrl = nextUrl.startsWith("http")
+            ? nextUrl
+            : `https://api.openai.com${nextUrl}`;
+
+          console.log("Fetching more assistants from:", fullUrl);
+
+          fetch(fullUrl, {
+            method: "GET",
+            headers: headers,
+          })
+            .then((response) => response.json())
+            .then((moreData) => {
+              const moreAssistants = moreData.data || [];
+              allAssistants = [...allAssistants, ...moreAssistants];
+
+              // Check if there are more pages
+              if (moreData.has_more && moreData.last_id) {
+                fetchMoreAssistants(
+                  `/v1/assistants?limit=100&order=desc&after=${moreData.last_id}`
+                );
+              } else {
+                finishAssistantsFetch(allAssistants);
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching additional assistants:", error);
+              // Still finish with what we have
+              finishAssistantsFetch(allAssistants);
+            });
+        };
+
+        // Function to finish processing all fetched assistants
+        const finishAssistantsFetch = (assistants) => {
+          console.log(
+            "All assistants fetched, total count:",
+            assistants.length
+          );
+
+          // Show message if no assistants are found
+          if (assistants.length === 0) {
+            showAssistantError(
+              "No assistants found in your OpenAI account. Please create at least one assistant in the OpenAI dashboard."
+            );
+          }
+
+          // Save assistants to storage
+          chrome.storage.local.set(
+            { openai_assistants: assistants },
+            function () {
+              console.log("Assistants saved to storage:", assistants.length);
+
+              // Update dropdown if it exists
+              updateAssistantDropdown(assistants);
+            }
+          );
+        };
+
+        // Check for pagination
+        if (data.has_more && data.last_id) {
+          fetchMoreAssistants(
+            `/v1/assistants?limit=100&order=desc&after=${data.last_id}`
+          );
+        } else {
+          finishAssistantsFetch(allAssistants);
+        }
       })
       .catch((error) => {
         console.error("Error fetching OpenAI assistants:", error);
@@ -1333,66 +1392,6 @@ function showAssistantError(errorMessage) {
   }
 }
 
-// Add some styles for the refresh button and loading spinner
-function addAssistantStyles() {
-  const style = document.createElement("style");
-  style.textContent = `
-    .refresh-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 1px solid #e0e0e0;
-      background: white;
-      color: #1a73e8;
-      margin-right: 8px;
-      cursor: pointer;
-    }
-    .refresh-btn:hover {
-      background: #f0f0f0;
-    }
-    .assistant-loading {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-    .spinner-sm {
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(26, 115, 232, 0.2);
-      border-radius: 50%;
-      border-top-color: #1a73e8;
-      animation: spinner-rotate 1s linear infinite;
-    }
-    .hidden {
-      display: none;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// Add a function to check API key and show settings if missing
-function checkAPIKeyAndAssistants() {
-  chrome.storage.local.get(
-    ["openai_api_key", "openai_assistants"],
-    function (result) {
-      if (!result.openai_api_key) {
-        console.log("No API key found, showing settings");
-        showSettingsModal();
-        return;
-      }
-
-      if (!result.openai_assistants || result.openai_assistants.length === 0) {
-        console.log("No assistants found, fetching from API");
-        fetchOpenAIAssistants();
-      }
-    }
-  );
-}
-
 // Add this new function to show the manage assistants modal
 function showManageAssistantsModal() {
   console.log("Showing manage assistants modal");
@@ -1450,9 +1449,9 @@ function showManageAssistantsModal() {
           </button>
         </div>
 
-        <!-- Selection Buttons -->
-        <div style="padding: 24px 24px 0 24px;">
-          <div style="display: flex; margin-bottom: 24px;">
+        <!-- Selection Buttons - Now with white background and border -->
+        <div style="padding: 16px 24px; background: white; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 10;">
+          <div style="display: flex; align-items: center;">
             <button id="select-all-btn" style="display: flex; align-items: center; color: #4285f4; background: none; border: none; font-size: 16px; font-weight: 500; cursor: pointer; margin-right: 24px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
                 <polyline points="9 11 12 14 22 4"></polyline>
@@ -1470,8 +1469,8 @@ function showManageAssistantsModal() {
           </div>
         </div>
 
-        <!-- Assistants List -->
-        <div style="max-height: 300px; overflow-y: auto; padding: 0 24px;">
+        <!-- Assistants List - Increased max-height for better visibility -->
+        <div style="max-height: 400px; overflow-y: auto; padding: 16px 24px 0;">
           <div style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px;">
     `;
 
@@ -1495,13 +1494,22 @@ function showManageAssistantsModal() {
       `;
       });
 
+      // Add a message if no assistants
+      if (assistants.length === 0) {
+        modalContent += `
+        <div style="text-align: center; padding: 20px 0; color: #666;">
+          No assistants found. Create assistants in your OpenAI dashboard.
+        </div>
+      `;
+      }
+
       // Add footer with buttons
       modalContent += `
           </div>
         </div>
 
         <!-- Footer -->
-        <div style="border-top: 1px solid #e0e0e0; padding: 16px 24px; display: flex; justify-content: space-between; margin-top: 16px;">
+        <div style="border-top: 1px solid #e0e0e0; padding: 16px 24px; display: flex; justify-content: space-between; background: white;">
           <button id="cancel-manage-assistants-btn" style="padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; cursor: pointer;">
             Cancel
           </button>
@@ -1652,4 +1660,65 @@ function updateAssistantDropdown(assistants) {
     // Update the dropdown using the selection
     updateAssistantDropdownWithSelection(assistants, selectedAssistants);
   });
+}
+
+// Add these functions back that were accidentally removed
+// Add some styles for the refresh button and loading spinner
+function addAssistantStyles() {
+  const style = document.createElement("style");
+  style.textContent = `
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid #e0e0e0;
+      background: white;
+      color: #1a73e8;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+    .refresh-btn:hover {
+      background: #f0f0f0;
+    }
+    .assistant-loading {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .spinner-sm {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(26, 115, 232, 0.2);
+      border-radius: 50%;
+      border-top-color: #1a73e8;
+      animation: spinner-rotate 1s linear infinite;
+    }
+    .hidden {
+      display: none;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Add a function to check API key and show settings if missing
+function checkAPIKeyAndAssistants() {
+  chrome.storage.local.get(
+    ["openai_api_key", "openai_assistants"],
+    function (result) {
+      if (!result.openai_api_key) {
+        console.log("No API key found, showing settings");
+        showSettingsModal();
+        return;
+      }
+
+      if (!result.openai_assistants || result.openai_assistants.length === 0) {
+        console.log("No assistants found, fetching from API");
+        fetchOpenAIAssistants();
+      }
+    }
+  );
 }
