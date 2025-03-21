@@ -152,6 +152,7 @@ function openAssistantUI(composeWindow) {
     z-index: 9999999 !important;
     justify-content: center !important;
     align-items: center !important;
+    overflow: hidden !important;
   `;
 
   // Set up UI event handlers
@@ -238,8 +239,8 @@ function createAssistantUIHTML(emailThread) {
           </div>
         </div>
 
-        <!-- Content -->
-        <div class="p-4 space-y-4">
+        <!-- Content - Make it scrollable with max-height -->
+        <div class="p-4 space-y-4" style="max-height: 70vh; overflow-y: auto;">
           <!-- Assistant Selection -->
           <div>
             <div class="flex items-center justify-between mb-1">
@@ -290,10 +291,10 @@ function createAssistantUIHTML(emailThread) {
             </a>
           </div>
 
-          <!-- Email Thread -->
+          <!-- Email Thread - Fixed height and scrollable -->
           <div>
             <label>Email Thread</label>
-            <div id="emailPreview">
+            <div id="emailPreview" style="height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; background-color: #f9f9f9;">
               <!-- This will be populated with the email thread content -->
               <div class="email-sender">John Doe &lt;john.doe@example.com&gt;</div>
               <div class="email-recipient">To: me</div>
@@ -313,8 +314,8 @@ function createAssistantUIHTML(emailThread) {
           </div>
         </div>
 
-        <!-- Footer -->
-        <div class="bg-gray-50 px-4 py-3 flex justify-end">
+        <!-- Footer - Fixed at bottom -->
+        <div class="bg-gray-50 px-4 py-3 flex justify-end" style="border-top: 1px solid #e0e0e0;">
           <button id="generateBtn" class="gmail-button">
             Generate Response
           </button>
@@ -346,7 +347,7 @@ function createAssistantUIHTML(emailThread) {
         </div>
 
         <!-- Content -->
-        <div class="p-4">
+        <div class="p-4" style="max-height: 70vh; overflow-y: auto;">
           <!-- Rich Text Editor -->
           <div id="responseText" class="border border-gray-300 rounded-md p-3 min-h-[200px] max-h-[300px] overflow-y-auto" contenteditable="true">
             <div class="spinner-container">
@@ -356,7 +357,7 @@ function createAssistantUIHTML(emailThread) {
         </div>
 
         <!-- Footer -->
-        <div class="bg-gray-50 px-4 py-3 flex justify-between">
+        <div class="bg-gray-50 px-4 py-3 flex justify-between" style="border-top: 1px solid #e0e0e0;">
           <button id="backBtn" class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium">
             Back
           </button>
@@ -1699,6 +1700,50 @@ function addAssistantStyles() {
     }
     .hidden {
       display: none;
+    }
+    
+    /* Modal styles to ensure proper layout */
+    .modal-wrapper {
+      background: white;
+      border-radius: 8px;
+      width: 550px;
+      max-width: 95vw;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+    
+    /* Screen layout */
+    .screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      max-height: 90vh;
+    }
+    .screen.active {
+      display: flex;
+    }
+    
+    /* Email preview styles */
+    #emailPreview {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .email-sender {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .email-recipient, .email-subject {
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .email-content {
+      margin-top: 8px;
+    }
+    .email-content p {
+      margin-bottom: 8px;
     }
   `;
   document.head.appendChild(style);
