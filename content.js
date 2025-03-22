@@ -10,7 +10,23 @@ function safeStorage() {
   return {
     get: function (keys, callback) {
       if (isAvailable) {
-        chrome.storage.local.get(keys, callback);
+        try {
+          chrome.storage.local.get(keys, callback);
+        } catch (error) {
+          console.warn("Chrome storage error:", error);
+          // Handle context invalidation error
+          if (
+            error.message &&
+            error.message.includes("Extension context invalidated")
+          ) {
+            console.warn(
+              "Extension context has been invalidated. The page needs refreshing."
+            );
+            showExtensionContextInvalidatedMessage();
+          }
+          // Provide empty result as fallback
+          callback({});
+        }
       } else {
         console.warn("Chrome storage API not available for get operation");
         callback({});
@@ -18,14 +34,85 @@ function safeStorage() {
     },
     set: function (items, callback) {
       if (isAvailable) {
-        chrome.storage.local.set(items, callback);
+        try {
+          chrome.storage.local.set(items, callback);
+        } catch (error) {
+          console.warn("Chrome storage error:", error);
+          // Handle context invalidation error
+          if (
+            error.message &&
+            error.message.includes("Extension context invalidated")
+          ) {
+            console.warn(
+              "Extension context has been invalidated. The page needs refreshing."
+            );
+            showExtensionContextInvalidatedMessage();
+          }
+          // Execute callback even on error
+          if (callback) callback();
+        }
       } else {
         console.warn("Chrome storage API not available for set operation");
         if (callback) callback();
       }
     },
+    // Promise-based versions for use with async/await
+    getAsync: function (keys) {
+      return new Promise((resolve) => {
+        this.get(keys, (result) => resolve(result));
+      });
+    },
+    setAsync: function (items) {
+      return new Promise((resolve) => {
+        this.set(items, resolve);
+      });
+    },
     isAvailable: isAvailable,
   };
+}
+
+// Function to show a message when extension context is invalidated
+function showExtensionContextInvalidatedMessage() {
+  // Only show the message once
+  if (document.getElementById("extension-invalidated-message")) return;
+
+  const messageDiv = document.createElement("div");
+  messageDiv.id = "extension-invalidated-message";
+  messageDiv.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: #f44336;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 10000000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    max-width: 350px;
+    font-family: Arial, sans-serif;
+  `;
+
+  messageDiv.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+      <strong style="font-size: 16px;">Extension Needs Refreshing</strong>
+      <button id="close-error-message" style="background: none; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
+    </div>
+    <p style="margin: 0 0 10px 0; line-height: 1.4;">The Gmail AI Assistant extension has been updated or reloaded. Please refresh this page to continue using it.</p>
+    <button id="refresh-page-btn" style="background-color: white; color: #f44336; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Refresh Page</button>
+  `;
+
+  document.body.appendChild(messageDiv);
+
+  // Add event listeners to buttons
+  document
+    .getElementById("close-error-message")
+    .addEventListener("click", () => {
+      messageDiv.remove();
+    });
+
+  document.getElementById("refresh-page-btn").addEventListener("click", () => {
+    window.location.reload();
+  });
 }
 
 // Main function to initialize the extension
@@ -122,18 +209,23 @@ function insertAssistantButton(toolbar, composeWindow) {
   buttonDiv.appendChild(button);
 
   // Simplify the click event to ensure it works consistently
-  buttonDiv.addEventListener("click", function () {
+  buttonDiv.addEventListener("click", async function () {
     console.log("Assistant button clicked in toolbar - direct handler");
 
-    // Use safe storage utility to check for API key
-    safeStorage().get(["openai_api_key"], function (result) {
+    try {
+      // Use safe storage utility to check for API key
+      const result = await safeStorage().getAsync(["openai_api_key"]);
       if (!result.openai_api_key) {
         console.log("No API key, showing settings modal first");
         showSettingsModal();
       } else {
         openAssistantUI(composeWindow);
       }
-    });
+    } catch (error) {
+      console.error("Error accessing storage:", error);
+      // Fallback to showing the UI without checking for API key
+      showSettingsModal();
+    }
   });
 
   // Insert button into toolbar
