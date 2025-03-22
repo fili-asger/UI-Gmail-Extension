@@ -1010,13 +1010,189 @@ function editAssistantList() {
 
 // Function to auto-detect assistant
 function autoDetectAssistant() {
-  // This would analyze the email content and select the appropriate assistant
-  const selectElement = document.getElementById("assistant");
-  if (selectElement) {
-    // Just select a random option for demonstration
-    const options = selectElement.options;
-    const randomIndex = Math.floor(Math.random() * options.length);
-    selectElement.selectedIndex = randomIndex;
+  console.log("Auto-detecting assistant using ChatGPT...");
+
+  // Get the email thread content
+  const emailThread = getEmailThreadContent();
+  if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
+    console.error("No email thread content available for assistant detection");
+    return;
+  }
+
+  // Get the available assistants from the dropdown
+  const assistantSelect = document.getElementById("assistant");
+  if (!assistantSelect || assistantSelect.options.length === 0) {
+    console.error("No assistants available in the dropdown");
+    return;
+  }
+
+  // Show loading indicator
+  assistantSelect.disabled = true;
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "assistant-auto-detect-loading";
+  loadingEl.innerHTML = `<div style="width: 20px; height: 20px; border: 2px solid rgba(26, 115, 232, 0.2); border-radius: 50%; border-top-color: #1a73e8; animation: spinner-rotate 1s linear infinite; position: absolute; right: 30px; top: 50%; transform: translateY(-50%);"></div>`;
+  assistantSelect.parentNode.appendChild(loadingEl);
+
+  // Get the list of favorite assistants (options in the dropdown)
+  const availableAssistants = [];
+  for (let i = 0; i < assistantSelect.options.length; i++) {
+    const option = assistantSelect.options[i];
+    if (option.value) {
+      availableAssistants.push({
+        id: option.value,
+        name: option.textContent,
+      });
+    }
+  }
+
+  // Get API key from storage
+  safeStorage().get(["openai_api_key"], function (result) {
+    if (!result.openai_api_key) {
+      console.error("No API key found for auto-detection");
+      // Remove loading indicator
+      assistantSelect.disabled = false;
+      const loadingIndicator = document.querySelector(
+        ".assistant-auto-detect-loading"
+      );
+      if (loadingIndicator) loadingIndicator.remove();
+      return;
+    }
+
+    // Call ChatGPT to determine the best assistant
+    detectAssistantWithChatGPT(
+      result.openai_api_key,
+      emailThread,
+      availableAssistants,
+      function (bestAssistantId) {
+        // Set the selected assistant in the dropdown
+        if (bestAssistantId) {
+          for (let i = 0; i < assistantSelect.options.length; i++) {
+            if (assistantSelect.options[i].value === bestAssistantId) {
+              assistantSelect.selectedIndex = i;
+              break;
+            }
+          }
+        }
+
+        // Remove loading indicator
+        assistantSelect.disabled = false;
+        const loadingIndicator = document.querySelector(
+          ".assistant-auto-detect-loading"
+        );
+        if (loadingIndicator) loadingIndicator.remove();
+      }
+    );
+  });
+}
+
+// Function to detect the best assistant using ChatGPT
+async function detectAssistantWithChatGPT(
+  apiKey,
+  emailThread,
+  availableAssistants,
+  callback
+) {
+  try {
+    // Format the email thread into a string
+    let emailContent = `Subject: ${emailThread.subject}\n\n`;
+    emailThread.thread.forEach((message, index) => {
+      emailContent += `Email ${index + 1}:\n`;
+      emailContent += `From: ${message.from}\n`;
+      emailContent += `To: ${message.to}\n`;
+      emailContent += `Content: ${message.content}\n\n`;
+    });
+
+    // Format the list of available assistants
+    let assistantsList = "";
+    availableAssistants.forEach((assistant, index) => {
+      assistantsList += `${index + 1}. ${assistant.name} (ID: ${
+        assistant.id
+      })\n`;
+    });
+
+    // Construct the prompt for ChatGPT
+    const prompt = `I need to determine which AI assistant from my list would be best suited to help me reply to this email thread. Here's the email content:
+
+${emailContent}
+
+Here are my available assistants:
+${assistantsList}
+
+Please analyze the email content and determine which assistant would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assistant, with no additional text or explanation.`;
+
+    console.log("Sending auto-detect prompt to ChatGPT...");
+
+    // Make the API request to ChatGPT 4o-mini
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that analyzes email content and determines which specialized AI assistant would be best for replying to it. Respond only with the assistant ID, without any explanation or additional text.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 50,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.error("Error from ChatGPT:", data.error);
+      callback(null);
+      return;
+    }
+
+    // Extract the assistant ID from the response
+    const assistantIdResponse = data.choices[0].message.content.trim();
+    console.log("ChatGPT suggested assistant:", assistantIdResponse);
+
+    // Look for an assistant ID in the response
+    let bestAssistantId = null;
+
+    // First try to match the exact ID
+    for (const assistant of availableAssistants) {
+      if (assistantIdResponse.includes(assistant.id)) {
+        bestAssistantId = assistant.id;
+        break;
+      }
+    }
+
+    // If no exact ID match, look for a name match
+    if (!bestAssistantId) {
+      for (const assistant of availableAssistants) {
+        if (
+          assistantIdResponse
+            .toLowerCase()
+            .includes(assistant.name.toLowerCase())
+        ) {
+          bestAssistantId = assistant.id;
+          break;
+        }
+      }
+    }
+
+    // If still no match, use the first assistant as fallback
+    if (!bestAssistantId && availableAssistants.length > 0) {
+      bestAssistantId = availableAssistants[0].id;
+    }
+
+    callback(bestAssistantId);
+  } catch (error) {
+    console.error("Error detecting assistant with ChatGPT:", error);
+    callback(null);
   }
 }
 
@@ -1905,6 +2081,11 @@ function addAssistantStyles() {
     }
     .email-content p {
       margin-bottom: 8px;
+    }
+    
+    /* Spinner animation */
+    @keyframes spinner-rotate {
+      to { transform: rotate(360deg); }
     }
   `;
   document.head.appendChild(style);
