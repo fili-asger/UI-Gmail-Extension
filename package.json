@@ -1,0 +1,47 @@
+{
+  "name": "gmail-assistant-extension",
+  "version": "1.0.0",
+  "description": "A modern, user-friendly Gmail Assistant Extension that enhances email productivity through AI assistance.",
+  "main": "background.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [
+    "gmail",
+    "assistant",
+    "extension",
+    "chrome",
+    "openai",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "moduleFileExtensions": [
+      "js",
+      "jsx"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "<rootDir>/__mocks__/styleMock.js"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.js?(x)",
+      "**/?(*.)+(spec|test).js?(x)"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "clearMocks": true
+  }
+}
