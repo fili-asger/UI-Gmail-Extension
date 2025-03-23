@@ -366,14 +366,14 @@ function createAssistantUIHTML(emailThread) {
           <!-- Assistant Selection -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label for="assistant">Select Assistant</label>
+              <label for="assistant">Select Assayn</label>
               <div class="flex items-center">
                 <button id="refreshAssistantsBtn" class="refresh-btn" title="Refresh assistants list">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
                   </svg>
                 </button>
-                <div class="magic-wand-button" aria-label="Auto-detect assistant">
+                <div class="magic-wand-button" aria-label="Auto-detect assayn">
                   <span>🪄</span>
                 </div>
               </div>
@@ -387,7 +387,7 @@ function createAssistantUIHTML(emailThread) {
               </div>
             </div>
             <a href="#" class="text-blue-600 mt-1" id="editAssistantListBtn">
-              Edit Assistant List
+              Edit Assayn List
             </a>
             <div id="assistant-error" class="text-red-500 text-xs mt-1 hidden"></div>
           </div>
@@ -700,7 +700,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       showManageAssistantsModal(true);
 
       // Then fetch the latest assistants
-      console.log("Edit Assistant List clicked, fetching latest assistants");
+      console.log("Edit Assayn List clicked, fetching latest assistants");
       fetchOpenAIAssistants(true, function () {
         // Update the modal with assistants after fetching
         showManageAssistantsModal(false);
