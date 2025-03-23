@@ -1103,7 +1103,7 @@ function showRegenerateModal(emailThread) {
 
   // Create HTML for the modal
   regenerateModal.innerHTML = `
-    <div class="settings-content">
+    <div class="settings-content" style="max-width: 400px; width: 80%;">
       <!-- Regenerate Modal Header -->
       <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
         <h2>Regenerate Response</h2>
