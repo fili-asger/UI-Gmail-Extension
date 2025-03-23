@@ -660,29 +660,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const regenerateBtn = modal.querySelector("#regenerateBtn");
   if (regenerateBtn) {
     regenerateBtn.addEventListener("click", () => {
-      const assistantSelect = modal.querySelector("#assistant");
-      const action = modal.querySelector("#action").value;
-
-      // Show loading indicator again
-      const responseText = modal.querySelector("#responseText");
-      responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
-
-      // Get the API key from storage
-      safeStorage().get(["openai_api_key"], function (result) {
-        if (!result.openai_api_key) {
-          responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
-          return;
-        }
-
-        // Call OpenAI API again
-        generateResponseWithAssistant(
-          result.openai_api_key,
-          assistantSelect.value,
-          action,
-          emailThread,
-          responseText
-        );
-      });
+      // Show the regenerate modal with the current email thread
+      showRegenerateModal(emailThread);
     });
   }
 
@@ -1091,6 +1070,233 @@ function regenerateResponse() {
       "<br>"
     );
   }, 1500);
+}
+
+// Function to show regenerate modal
+function showRegenerateModal(emailThread) {
+  console.log("Showing regenerate modal");
+
+  // Remove any existing regenerate modal
+  const existingModal = document.getElementById("regenerate-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal element
+  const regenerateModal = document.createElement("div");
+  regenerateModal.id = "regenerate-modal";
+  regenerateModal.className = "settings-modal active";
+
+  // Create HTML for the modal
+  regenerateModal.innerHTML = `
+    <div class="settings-content">
+      <!-- Regenerate Modal Header -->
+      <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
+        <h2>Regenerate Response</h2>
+        <div class="flex items-center">
+          <button id="closeRegenerateBtn" class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Regenerate Content -->
+      <div class="p-4 space-y-4">
+        <div>
+          <label for="regenerateInstructions" class="block text-sm font-medium text-gray-700 mb-1">Additional Instructions</label>
+          <textarea id="regenerateInstructions" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" 
+            placeholder="For example: 'Make it more formal', 'Include pricing details', 'Make it shorter'"></textarea>
+          <p class="mt-1 text-xs text-gray-500">Add specific instructions for how to change the generated response.</p>
+        </div>
+      </div>
+
+      <!-- Regenerate Footer -->
+      <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
+        <button id="cancelRegenerateBtn" class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200 mr-2">
+          Cancel
+        </button>
+        <button id="submitRegenerateBtn" class="gmail-button">
+          Regenerate
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Add modal to the DOM
+  document.body.appendChild(regenerateModal);
+
+  // Add event listeners
+  const closeBtn = document.getElementById("closeRegenerateBtn");
+  if (closeBtn) {
+    closeBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      regenerateModal.remove();
+    };
+  }
+
+  const cancelBtn = document.getElementById("cancelRegenerateBtn");
+  if (cancelBtn) {
+    cancelBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      regenerateModal.remove();
+    };
+  }
+
+  const submitBtn = document.getElementById("submitRegenerateBtn");
+  if (submitBtn) {
+    submitBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const instructions = document
+        .getElementById("regenerateInstructions")
+        .value.trim();
+
+      // Get the modal and hide it
+      regenerateModal.remove();
+
+      // Show loading indicator
+      const responseText = document.getElementById("responseText");
+      responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
+
+      // Get the assistant ID and action
+      const assistantId = document.getElementById("assistant").value;
+      const action = document.getElementById("action").value;
+
+      // Get the API key from storage
+      safeStorage().get(["openai_api_key"], function (result) {
+        if (!result.openai_api_key) {
+          responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
+          return;
+        }
+
+        // Call OpenAI API again with instructions
+        regenerateResponseWithInstructions(
+          result.openai_api_key,
+          assistantId,
+          action,
+          emailThread,
+          instructions,
+          responseText
+        );
+      });
+    };
+  }
+}
+
+// Function to regenerate response with instructions
+async function regenerateResponseWithInstructions(
+  apiKey,
+  assistantId,
+  action,
+  emailThread,
+  instructions,
+  responseElement
+) {
+  console.log(
+    `Regenerating response with assistant ${assistantId}, action "${action}", and instructions: "${instructions}"`
+  );
+
+  try {
+    // Format the email thread data for the prompt
+    let emailContent = formatEmailThreadForPrompt(emailThread, action);
+
+    // Add the regeneration instructions
+    if (instructions) {
+      emailContent += `\n\nAdditional instructions: ${instructions}`;
+    }
+
+    // Step 1: Create a thread
+    const threadResponse = await fetch("https://api.openai.com/v1/threads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "OpenAI-Beta": "assistants=v2",
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!threadResponse.ok) {
+      const errorData = await threadResponse.json();
+      throw new Error(
+        `Failed to create thread: ${
+          errorData.error?.message || threadResponse.statusText
+        }`
+      );
+    }
+
+    const threadData = await threadResponse.json();
+    const threadId = threadData.id;
+    console.log("Thread created:", threadId);
+
+    // Step 2: Add a message to the thread
+    const messageResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+        body: JSON.stringify({
+          role: "user",
+          content: emailContent,
+        }),
+      }
+    );
+
+    if (!messageResponse.ok) {
+      const errorData = await messageResponse.json();
+      throw new Error(
+        `Failed to add message: ${
+          errorData.error?.message || messageResponse.statusText
+        }`
+      );
+    }
+
+    console.log("Message added to thread");
+
+    // Step 3: Run the assistant on the thread
+    const runResponse = await fetch(
+      `https://api.openai.com/v1/threads/${threadId}/runs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+        body: JSON.stringify({
+          assistant_id: assistantId,
+        }),
+      }
+    );
+
+    if (!runResponse.ok) {
+      const errorData = await runResponse.json();
+      throw new Error(
+        `Failed to run assistant: ${
+          errorData.error?.message || runResponse.statusText
+        }`
+      );
+    }
+
+    const runData = await runResponse.json();
+    const runId = runData.id;
+    console.log("Assistant run started:", runId);
+
+    // Step 4: Poll for the run completion
+    await pollRunStatus(apiKey, threadId, runId, responseElement);
+  } catch (error) {
+    console.error("Error regenerating response:", error);
+    responseElement.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+  }
 }
 
 // Function to open settings
