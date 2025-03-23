@@ -18,4 +18,10 @@ coverage/
 dist/
 
 # ZIP files for distribution
-*.zip 
+*.zip
+
+# Duplicate files
+*\ 2.*
+*2.json
+*2.js
+*2.md 
