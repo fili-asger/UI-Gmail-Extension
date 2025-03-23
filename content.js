@@ -1122,13 +1122,12 @@ function showRegenerateModal(emailThread) {
           <label for="regenerateInstructions" class="block text-sm font-medium text-gray-700 mb-1">Additional Instructions</label>
           <textarea id="regenerateInstructions" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" 
             placeholder="For example: 'Make it more formal', 'Include pricing details', 'Make it shorter'"></textarea>
-          <p class="mt-1 text-xs text-gray-500">Add specific instructions for how to change the generated response.</p>
         </div>
       </div>
 
       <!-- Regenerate Footer -->
       <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
-        <button id="cancelRegenerateBtn" class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200 mr-2">
+        <button id="cancelRegenerateBtn" class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200 mr-4">
           Cancel
         </button>
         <button id="submitRegenerateBtn" class="gmail-button">
