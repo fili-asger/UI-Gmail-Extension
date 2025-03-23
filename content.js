@@ -1118,7 +1118,7 @@ function showRegenerateModal(emailThread) {
 
       <!-- Regenerate Content -->
       <div class="p-4 space-y-4">
-        <div style="width: 100%; padding-left: 15%; padding-right: 15%;">
+        <div style="width: 100%;">
           <label for="regenerateInstructions" class="block text-sm font-medium text-gray-700 mb-1">Additional Instructions</label>
           <textarea id="regenerateInstructions" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; font-size: 14px; resize: vertical;" 
             placeholder="For example: 'Make it more formal', 'Include pricing details', 'Make it shorter'"></textarea>
