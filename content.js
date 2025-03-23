@@ -1103,13 +1103,13 @@ function showRegenerateModal(emailThread) {
 
   // Create HTML for the modal
   regenerateModal.innerHTML = `
-    <div class="settings-content" style="max-width: 400px; width: 80%;">
+    <div class="settings-content" style="max-width: 400px; width: 80%; box-shadow: 0 2px 10px rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
       <!-- Regenerate Modal Header -->
-      <div class="gmail-header px-4 py-3 flex justify-between items-center rounded-t-lg">
-        <h2>Regenerate Response</h2>
+      <div class="gmail-header px-4 py-3 flex justify-between items-center" style="background-color: #4285f4; padding: 14px 20px;">
+        <h2 style="color: white; font-size: 16px; font-weight: 500; margin: 0;">Regenerate Response</h2>
         <div class="flex items-center">
-          <button id="closeRegenerateBtn" class="close-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <button id="closeRegenerateBtn" class="close-btn" style="background: none; border: none; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="white">
               <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
             </svg>
           </button>
@@ -1117,20 +1117,20 @@ function showRegenerateModal(emailThread) {
       </div>
 
       <!-- Regenerate Content -->
-      <div class="p-4 space-y-4">
+      <div style="padding: 20px;">
         <div style="width: 100%;">
-          <label for="regenerateInstructions" class="block text-sm font-medium text-gray-700 mb-1">Additional Instructions</label>
-          <textarea id="regenerateInstructions" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; font-size: 14px; resize: vertical;" 
+          <label for="regenerateInstructions" style="font-size: 14px; font-weight: 500; color: #5f6368; margin-bottom: 8px; display: block;">Additional Instructions</label>
+          <textarea id="regenerateInstructions" style="width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 4px; min-height: 90px; font-size: 14px; resize: vertical; color: #202124; outline: none; box-sizing: border-box; line-height: 1.5; font-family: 'Roboto', Arial, sans-serif;" 
             placeholder="For example: 'Make it more formal', 'Include pricing details', 'Make it shorter'"></textarea>
         </div>
       </div>
 
       <!-- Regenerate Footer -->
-      <div class="bg-gray-50 px-4 py-3 flex justify-end rounded-b-lg">
-        <button id="cancelRegenerateBtn" class="text-gray-700 bg-white hover:bg-gray-50 px-5 py-2 rounded-md text-base font-medium transition-colors shadow-sm border border-gray-200 mr-6">
+      <div style="padding: 12px 20px; display: flex; justify-content: flex-end; background-color: #f8f9fa; border-top: 1px solid #dadce0;">
+        <button id="cancelRegenerateBtn" style="background-color: transparent; color: #1a73e8; border: none; font-size: 14px; font-weight: 500; padding: 10px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; line-height: 20px;">
           Cancel
         </button>
-        <button id="submitRegenerateBtn" class="gmail-button">
+        <button id="submitRegenerateBtn" style="background-color: #1a73e8; color: white; border: none; font-size: 14px; font-weight: 500; padding: 10px 24px; border-radius: 4px; cursor: pointer; line-height: 20px;">
           Regenerate
         </button>
       </div>
