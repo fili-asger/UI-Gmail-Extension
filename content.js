@@ -1197,9 +1197,7 @@ async function detectAssaynWithChatGPT(
     // Format the list of available assayns
     let assaynsList = "";
     availableAssayns.forEach((assayn, index) => {
-      assaynsList += `${index + 1}. ${assayn.name} (ID: ${
-        assayn.id
-      })\n`;
+      assaynsList += `${index + 1}. ${assayn.name} (ID: ${assayn.id})\n`;
     });
 
     // Construct the prompt for ChatGPT
@@ -1266,9 +1264,7 @@ Please analyze the email content and determine which assayn would be most approp
     if (!bestAssaynId) {
       for (const assayn of availableAssayns) {
         if (
-          assaynIdResponse
-            .toLowerCase()
-            .includes(assayn.name.toLowerCase())
+          assaynIdResponse.toLowerCase().includes(assayn.name.toLowerCase())
         ) {
           bestAssaynId = assayn.id;
           break;
@@ -2267,7 +2263,7 @@ async function generateResponseWithAssistant(
           "OpenAI-Beta": "assistants=v2",
         },
         body: JSON.stringify({
-          assayn.id: assistantId,
+          assistant_id: assistantId,
         }),
       }
     );
