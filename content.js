@@ -1203,14 +1203,14 @@ async function detectAssistantWithChatGPT(
     });
 
     // Construct the prompt for ChatGPT
-    const prompt = `I need to determine which AI assistant from my list would be best suited to help me reply to this email thread. Here's the email content:
+    const prompt = `I need to determine which AI assayn from my list would be best suited to help me reply to this email thread. Here's the email content:
 
 ${emailContent}
 
-Here are my available assistants:
+Here are my available assayns:
 ${assistantsList}
 
-Please analyze the email content and determine which assistant would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assistant, with no additional text or explanation.`;
+Please analyze the email content and determine which assayn would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assayn, with no additional text or explanation.`;
 
     console.log("Sending auto-detect prompt to ChatGPT...");
 
