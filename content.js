@@ -134,6 +134,9 @@ function initExtension() {
   // Add handlers for settings buttons
   addSettingsButtonHandlers();
 
+  // Add keyboard shortcut handler for quick reply (Command+E)
+  setupKeyboardShortcuts();
+
   // No pre-fetching of assistants on startup - we'll use cached data
 }
 
@@ -2195,6 +2198,59 @@ function addAssistantStyles() {
       overflow: hidden !important;
     }
     
+    /* Floating status label for quick reply */
+    .floating-status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999999;
+      background-color: white;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-width: 300px;
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 14px;
+      transition: opacity 0.3s ease-out;
+    }
+    
+    .floating-status.info {
+      border-left: 4px solid #4285f4;
+    }
+    
+    .floating-status.success {
+      border-left: 4px solid #34a853;
+    }
+    
+    .floating-status.error {
+      border-left: 4px solid #ea4335;
+    }
+    
+    .floating-status.loading {
+      border-left: 4px solid #fbbc05;
+    }
+    
+    .status-icon {
+      margin-right: 10px;
+      font-size: 16px;
+    }
+    
+    .status-icon.loading {
+      display: inline-block;
+      animation: spin 1s infinite linear;
+    }
+    
+    .status-message {
+      color: #202124;
+      line-height: 1.4;
+    }
+    
+    .floating-status.fade-out {
+      opacity: 0;
+    }
+    
     /* Email preview styles */
     #emailPreview {
       font-size: 14px;
@@ -2835,5 +2891,454 @@ function updateActionDropdown(actions) {
     if (actions.includes(currentValue)) {
       actionSelect.value = currentValue;
     }
+  }
+}
+
+// Add keyboard shortcut handler for quick reply
+function setupKeyboardShortcuts() {
+  console.log("Setting up keyboard shortcuts");
+
+  document.addEventListener("keydown", function (event) {
+    // Check if Command+E (Mac) or Ctrl+E (Windows/Linux) is pressed
+    if ((event.metaKey || event.ctrlKey) && event.key === "e") {
+      console.log("Command+E shortcut detected");
+
+      // Prevent the default browser behavior for this key combination
+      event.preventDefault();
+
+      // Check if currently focused in a compose/reply field
+      const activeElement = document.activeElement;
+      const isInComposeField =
+        activeElement &&
+        (activeElement.classList.contains("editable") ||
+          activeElement.getAttribute("role") === "textbox" ||
+          activeElement.closest(".Am.Al.editable") ||
+          activeElement.closest(".aO7 .editable"));
+
+      if (isInComposeField) {
+        console.log("Quick reply shortcut activated in compose field");
+        handleQuickReply(activeElement);
+      }
+    }
+  });
+}
+
+// Handle the quick reply workflow
+function handleQuickReply(composeField) {
+  // Get the email thread content
+  const emailThread = getEmailThreadContent();
+  if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
+    showFloatingStatus("Error: No email content found", "error");
+    return;
+  }
+
+  // Show initial status
+  showFloatingStatus("Starting quick reply...", "info");
+
+  // Start the quick reply workflow
+  quickReplyWorkflow(emailThread, composeField);
+}
+
+// Create and show floating status label
+function showFloatingStatus(message, type = "info") {
+  // Remove any existing status label
+  const existingStatus = document.getElementById("quick-reply-status");
+  if (existingStatus) {
+    existingStatus.remove();
+  }
+
+  // Create new status label
+  const statusLabel = document.createElement("div");
+  statusLabel.id = "quick-reply-status";
+  statusLabel.className = `floating-status ${type}`;
+
+  // Add icon based on status type
+  let icon = "";
+  switch (type) {
+    case "info":
+      icon = '<span class="status-icon">ℹ️</span>';
+      break;
+    case "success":
+      icon = '<span class="status-icon">✅</span>';
+      break;
+    case "error":
+      icon = '<span class="status-icon">❌</span>';
+      break;
+    case "loading":
+      icon = '<span class="status-icon loading">⟳</span>';
+      break;
+  }
+
+  statusLabel.innerHTML = `
+    ${icon}
+    <span class="status-message">${message}</span>
+  `;
+
+  // Add to body
+  document.body.appendChild(statusLabel);
+
+  // If not an error or loading state, auto-remove after 5 seconds
+  if (type !== "error" && type !== "loading") {
+    setTimeout(() => {
+      statusLabel.classList.add("fade-out");
+      setTimeout(() => {
+        if (statusLabel.parentNode) {
+          statusLabel.remove();
+        }
+      }, 500);
+    }, 5000);
+  }
+
+  return statusLabel;
+}
+
+// Handle the entire quick reply workflow
+function quickReplyWorkflow(emailThread, composeField) {
+  // Step 1: Auto-detect the assistant
+  showFloatingStatus("Detecting best assistant...", "loading");
+
+  // First get available assistants
+  safeStorage().get(["cached_assistants"], async function (result) {
+    let assistants = result.cached_assistants || [];
+
+    // If no cached assistants, try to fetch them
+    if (!assistants || assistants.length === 0) {
+      showFloatingStatus("Fetching assistants...", "loading");
+      // Try to get assistants first
+      try {
+        assistants = await new Promise((resolve) => {
+          fetchOpenAIAssistants(true, (fetchedAssistants) => {
+            resolve(fetchedAssistants || []);
+          });
+        });
+
+        if (!assistants || assistants.length === 0) {
+          showFloatingStatus("Error: No assistants available", "error");
+          return;
+        }
+      } catch (error) {
+        console.error("Error fetching assistants:", error);
+        showFloatingStatus("Error fetching assistants", "error");
+        return;
+      }
+    }
+
+    // Filter for favorite/selected assistants if configured
+    safeStorage().get(["selected_assistants"], function (selectionResult) {
+      let selectedAssistants = selectionResult.selected_assistants || {};
+
+      // If we have selection preferences, filter the assistants
+      if (Object.keys(selectedAssistants).length > 0) {
+        assistants = assistants.filter(
+          (assistant) => selectedAssistants[assistant.id] === true
+        );
+      }
+
+      if (assistants.length === 0) {
+        showFloatingStatus("Error: No assistants selected", "error");
+        return;
+      }
+
+      // Now we have assistants, let's detect the best one for this email
+      detectBestAssistantForQuickReply(assistants, emailThread, composeField);
+    });
+  });
+}
+
+// Function to detect best assistant specifically for quick reply workflow
+function detectBestAssistantForQuickReply(
+  assistants,
+  emailThread,
+  composeField
+) {
+  // Get the API key
+  safeStorage().get(["openai_api_key"], function (result) {
+    if (!result.openai_api_key) {
+      showFloatingStatus(
+        "Error: API key not found. Please add your OpenAI API key in settings.",
+        "error"
+      );
+      return;
+    }
+
+    // Format assistants for the detection function
+    const availableAssistants = assistants.map((assistant) => ({
+      id: assistant.id,
+      name: assistant.name,
+    }));
+
+    // Call ChatGPT to determine the best assistant
+    detectAssistantWithChatGPT(
+      result.openai_api_key,
+      emailThread,
+      availableAssistants,
+      function (bestAssistantId) {
+        if (!bestAssistantId) {
+          showFloatingStatus(
+            "Error: Could not determine best assistant",
+            "error"
+          );
+          return;
+        }
+
+        // Find the assistant details
+        const selectedAssistant = assistants.find(
+          (a) => a.id === bestAssistantId
+        );
+        if (!selectedAssistant) {
+          showFloatingStatus("Error: Selected assistant not found", "error");
+          return;
+        }
+
+        // Update status with selected assistant
+        showFloatingStatus(
+          `Using ${selectedAssistant.name} to generate response...`,
+          "loading"
+        );
+
+        // Step 2: Generate response with the selected assistant
+        generateQuickReply(
+          result.openai_api_key,
+          selectedAssistant,
+          emailThread,
+          composeField
+        );
+      }
+    );
+  });
+}
+
+// Generate response for quick reply
+function generateQuickReply(apiKey, assistant, emailThread, composeField) {
+  // Default to "reply" action for quick reply
+  const action = "reply";
+
+  // Generate response using the assistant
+  const runId = `quickReply_${Date.now()}`;
+
+  // Create the prompt including email thread and action
+  let prompt = `I need you to ${action} to this email conversation. Here's the thread:\n\n`;
+
+  // Format the email thread
+  prompt += `Subject: ${emailThread.subject}\n\n`;
+  emailThread.thread.forEach((message, index) => {
+    prompt += `From: ${message.from}\n`;
+    if (message.to) prompt += `To: ${message.to}\n`;
+    prompt += `Content: ${message.content}\n\n`;
+  });
+
+  prompt += `Please create a concise, professional ${action} based on this thread.`;
+
+  console.log(`Generating quick reply with assistant: ${assistant.name}`);
+
+  // Call the OpenAI API
+  fetch("https://api.openai.com/v1/threads/runs", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "OpenAI-Beta": "assistants=v1",
+    },
+    body: JSON.stringify({
+      assistant_id: assistant.id,
+      thread: {
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      },
+    }),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      // Store run ID and check status
+      checkQuickReplyRunStatus(
+        apiKey,
+        data.thread_id,
+        data.id,
+        assistant.name,
+        composeField
+      );
+    })
+    .catch((error) => {
+      console.error("Error generating response:", error);
+      showFloatingStatus(
+        `Error: ${error.message || "Failed to generate response"}`,
+        "error"
+      );
+    });
+}
+
+// Check the status of a quick reply run
+function checkQuickReplyRunStatus(
+  apiKey,
+  threadId,
+  runId,
+  assistantName,
+  composeField
+) {
+  // Update status
+  showFloatingStatus(`${assistantName} is generating a reply...`, "loading");
+
+  // Check run status with exponential backoff
+  const checkStatus = () => {
+    fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "OpenAI-Beta": "assistants=v1",
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Run status:", data.status);
+
+        if (data.status === "completed") {
+          // Get the messages from the thread
+          fetchQuickReplyMessages(
+            apiKey,
+            threadId,
+            assistantName,
+            composeField
+          );
+        } else if (
+          data.status === "failed" ||
+          data.status === "cancelled" ||
+          data.status === "expired"
+        ) {
+          throw new Error(
+            `Run ${data.status}: ${data.last_error?.message || "Unknown error"}`
+          );
+        } else {
+          // Still in progress, check again after a delay
+          setTimeout(checkStatus, 1000);
+        }
+      })
+      .catch((error) => {
+        console.error("Error checking run status:", error);
+        showFloatingStatus(
+          `Error: ${error.message || "Failed to check run status"}`,
+          "error"
+        );
+      });
+  };
+
+  checkStatus();
+}
+
+// Fetch messages from a thread
+function fetchQuickReplyMessages(
+  apiKey,
+  threadId,
+  assistantName,
+  composeField
+) {
+  fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "OpenAI-Beta": "assistants=v1",
+    },
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      // Find the assistant's reply (should be the latest message)
+      const assistantMessages = data.data.filter(
+        (msg) => msg.role === "assistant"
+      );
+
+      if (assistantMessages.length === 0) {
+        throw new Error("No assistant response found");
+      }
+
+      // Get the latest assistant message
+      const latestMessage = assistantMessages[0];
+
+      // Extract text content
+      let responseText = "";
+      latestMessage.content.forEach((content) => {
+        if (content.type === "text") {
+          responseText += content.text.value;
+        }
+      });
+
+      if (!responseText) {
+        throw new Error("Empty response from assistant");
+      }
+
+      // Insert the response
+      insertQuickReplyIntoComposeField(responseText, composeField);
+    })
+    .catch((error) => {
+      console.error("Error fetching messages:", error);
+      showFloatingStatus(
+        `Error: ${error.message || "Failed to fetch assistant's response"}`,
+        "error"
+      );
+    });
+}
+
+// Insert quick reply into the compose field
+function insertQuickReplyIntoComposeField(responseText, composeField) {
+  try {
+    console.log("Inserting quick reply");
+
+    // Focus the compose field
+    composeField.focus();
+
+    // Check if field is empty
+    const isEmpty =
+      composeField.innerHTML.trim() === "" ||
+      composeField.innerHTML.trim() === "<br>";
+
+    // Insert the text
+    if (isEmpty) {
+      composeField.innerHTML = responseText;
+    } else {
+      // If there's existing text, append to it
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
+
+      // Create a text node with the response
+      const textNode = document.createElement("div");
+      textNode.innerHTML = responseText;
+
+      // Insert at cursor position or at the end
+      range.deleteContents();
+      range.insertNode(textNode);
+
+      // Move cursor to end of inserted text
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    // Trigger input event to ensure Gmail recognizes the change
+    const inputEvent = new Event("input", { bubbles: true });
+    composeField.dispatchEvent(inputEvent);
+
+    // Show success message
+    showFloatingStatus("Reply inserted successfully!", "success");
+  } catch (error) {
+    console.error("Error inserting reply:", error);
+    showFloatingStatus("Error inserting reply. Please try again.", "error");
   }
 }
