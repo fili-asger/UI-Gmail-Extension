@@ -3227,7 +3227,14 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
     prompt += `Content: ${message.content}\n\n`;
   });
 
-  prompt += `Please create a concise, professional ${action} based on this thread.`;
+  prompt += `Please create a concise, professional ${action} based on this thread. 
+  
+Important formatting instructions:
+1. Use proper email structure with greeting, body, and closing.
+2. Use line breaks between paragraphs.
+3. Format your reply as a proper email with appropriate spacing.
+4. Keep the greeting, body, and signature on separate lines.
+5. Do not use HTML formatting tags, just use regular line breaks.`;
 
   // Call the OpenAI API
   fetch("https://api.openai.com/v1/threads/runs", {
@@ -3411,10 +3418,11 @@ function fetchQuickReplyMessages(
       const latestMessage = assistantMessages[0];
       console.log("Quick Reply: Latest assistant message:", latestMessage.id);
 
-      // Extract text content
+      // Extract text content with proper formatting
       let responseText = "";
       latestMessage.content.forEach((content) => {
         if (content.type === "text") {
+          // Add the text value, preserving original line breaks
           responseText += content.text.value;
         }
       });
@@ -3423,7 +3431,23 @@ function fetchQuickReplyMessages(
         throw new Error("Empty response from assistant");
       }
 
-      console.log("Quick Reply: Successfully extracted response text");
+      // Clean up the response text to ensure consistent formatting
+      // Remove any excessive line breaks (more than 2 in a row)
+      responseText = responseText.replace(/\n{3,}/g, "\n\n");
+
+      // Ensure there are proper paragraph breaks for structural elements like greeting, body, closing
+      // Look for common email patterns and ensure they're separated with double line breaks
+      responseText = responseText
+        .replace(/^(Hi|Hello|Dear|Greetings)([^,]*),/gm, "$1$2,\n\n") // Add break after greeting
+        .replace(
+          /(\.|!|\?)(\s*)(?=Best|Kind|Warm|Regards|Sincerely|Thank)/g,
+          "$1\n\n$2"
+        ) // Add break before closing
+        .replace(/(Regards|Sincerely|Thank you)([^,]*),/g, "$1$2,\n\n"); // Add break after closing phrase
+
+      console.log(
+        "Quick Reply: Successfully extracted and formatted response text"
+      );
 
       // Insert the response
       insertQuickReplyIntoComposeField(responseText, composeField);
@@ -3445,6 +3469,14 @@ function insertQuickReplyIntoComposeField(responseText, composeField) {
     // Focus the compose field
     composeField.focus();
 
+    // Format the text to preserve line breaks
+    // Convert all line breaks to <br> tags to ensure proper formatting in Gmail
+    const formattedResponse = responseText
+      .replace(/\n\n+/g, "<div><br></div>") // Multiple line breaks become paragraph breaks
+      .replace(/\n/g, "<br>"); // Single line breaks become <br> tags
+
+    console.log("Quick Reply: Formatted response with preserved line breaks");
+
     // Check if field is empty
     const isEmpty =
       composeField.innerHTML.trim() === "" ||
@@ -3453,28 +3485,42 @@ function insertQuickReplyIntoComposeField(responseText, composeField) {
     // Insert the text
     if (isEmpty) {
       console.log("Quick Reply: Compose field is empty, replacing content");
-      composeField.innerHTML = responseText;
+      composeField.innerHTML = formattedResponse;
     } else {
       console.log(
         "Quick Reply: Compose field has content, appending at cursor position"
       );
-      // If there's existing text, append to it
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
 
-      // Create a text node with the response
-      const textNode = document.createElement("div");
-      textNode.innerHTML = responseText;
+      try {
+        // If there's existing text, append to it
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
 
-      // Insert at cursor position or at the end
-      range.deleteContents();
-      range.insertNode(textNode);
+        // Create a temporary div to hold the formatted content
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = formattedResponse;
 
-      // Move cursor to end of inserted text
-      range.setStartAfter(textNode);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
+        // Insert each child node to preserve formatting
+        const fragment = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+          fragment.appendChild(tempDiv.firstChild);
+        }
+
+        // Insert at cursor position
+        range.deleteContents();
+        range.insertNode(fragment);
+
+        // Move cursor to end of inserted text
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } catch (insertError) {
+        console.log(
+          "Quick Reply: Error with selection-based insertion, falling back to direct HTML insertion"
+        );
+        // Fallback: directly append the formatted HTML
+        composeField.innerHTML += formattedResponse;
+      }
     }
 
     // Trigger input event to ensure Gmail recognizes the change
