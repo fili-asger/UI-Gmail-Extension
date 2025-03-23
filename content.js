@@ -602,8 +602,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   if (generateBtn) {
     generateBtn.addEventListener("click", () => {
       // Get selected assistant ID
-      const assistantSelect = modal.querySelector("#assistant");
-      const assistantId = assistantSelect.value;
+      const assaynSelect = modal.querySelector("#assistant");
+      const assistantId = assaynSelect.value;
 
       // Check if an assistant is selected
       if (!assistantId) {
@@ -650,7 +650,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const regenerateBtn = modal.querySelector("#regenerateBtn");
   if (regenerateBtn) {
     regenerateBtn.addEventListener("click", () => {
-      const assistantSelect = modal.querySelector("#assistant");
+      const assaynSelect = modal.querySelector("#assistant");
       const action = modal.querySelector("#action").value;
 
       // Show loading indicator again
@@ -667,7 +667,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
         // Call OpenAI API again
         generateResponseWithAssistant(
           result.openai_api_key,
-          assistantSelect.value,
+          assaynSelect.value,
           action,
           emailThread,
           responseText
@@ -933,7 +933,7 @@ function initAssistantUI() {
         .closest("div")
         .previousElementSibling.querySelector("label");
       if (parentLabel && parentLabel.getAttribute("for") === "assistant") {
-        autoDetectAssistant();
+        autoDetectAssayn();
       } else if (parentLabel && parentLabel.getAttribute("for") === "action") {
         autoDetectAction();
       }
@@ -1101,36 +1101,36 @@ function editAssistantList() {
 }
 
 // Function to auto-detect assistant
-function autoDetectAssistant() {
-  console.log("Auto-detecting assistant using ChatGPT...");
+function autoDetectAssayn() {
+  console.log("Auto-detecting assayn using ChatGPT...");
 
   // Get the email thread content
   const emailThread = getEmailThreadContent();
   if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
-    console.error("No email thread content available for assistant detection");
+    console.error("No email thread content available for assayn detection");
     return;
   }
 
   // Get the available assistants from the dropdown
-  const assistantSelect = document.getElementById("assistant");
-  if (!assistantSelect || assistantSelect.options.length === 0) {
-    console.error("No assistants available in the dropdown");
+  const assaynSelect = document.getElementById("assistant");
+  if (!assaynSelect || assaynSelect.options.length === 0) {
+    console.error("No assayns available in the dropdown");
     return;
   }
 
   // Show loading indicator
-  assistantSelect.disabled = true;
+  assaynSelect.disabled = true;
   const loadingEl = document.createElement("div");
-  loadingEl.className = "assistant-auto-detect-loading";
+  loadingEl.className = "assayn-auto-detect-loading";
   loadingEl.innerHTML = `<div style="width: 20px; height: 20px; border: 2px solid rgba(26, 115, 232, 0.2); border-radius: 50%; border-top-color: #1a73e8; animation: spinner-rotate 1s linear infinite; position: absolute; right: 30px; top: 50%; transform: translateY(-50%);"></div>`;
-  assistantSelect.parentNode.appendChild(loadingEl);
+  assaynSelect.parentNode.appendChild(loadingEl);
 
   // Get the list of favorite assistants (options in the dropdown)
-  const availableAssistants = [];
-  for (let i = 0; i < assistantSelect.options.length; i++) {
-    const option = assistantSelect.options[i];
+  const availableAssayns = [];
+  for (let i = 0; i < assaynSelect.options.length; i++) {
+    const option = assaynSelect.options[i];
     if (option.value) {
-      availableAssistants.push({
+      availableAssayns.push({
         id: option.value,
         name: option.textContent,
       });
@@ -1142,34 +1142,34 @@ function autoDetectAssistant() {
     if (!result.openai_api_key) {
       console.error("No API key found for auto-detection");
       // Remove loading indicator
-      assistantSelect.disabled = false;
+      assaynSelect.disabled = false;
       const loadingIndicator = document.querySelector(
-        ".assistant-auto-detect-loading"
+        ".assayn-auto-detect-loading"
       );
       if (loadingIndicator) loadingIndicator.remove();
       return;
     }
 
     // Call ChatGPT to determine the best assistant
-    detectAssistantWithChatGPT(
+    detectAssaynWithChatGPT(
       result.openai_api_key,
       emailThread,
-      availableAssistants,
-      function (bestAssistantId) {
+      availableAssayns,
+      function (bestAssaynId) {
         // Set the selected assistant in the dropdown
-        if (bestAssistantId) {
-          for (let i = 0; i < assistantSelect.options.length; i++) {
-            if (assistantSelect.options[i].value === bestAssistantId) {
-              assistantSelect.selectedIndex = i;
+        if (bestAssaynId) {
+          for (let i = 0; i < assaynSelect.options.length; i++) {
+            if (assaynSelect.options[i].value === bestAssaynId) {
+              assaynSelect.selectedIndex = i;
               break;
             }
           }
         }
 
         // Remove loading indicator
-        assistantSelect.disabled = false;
+        assaynSelect.disabled = false;
         const loadingIndicator = document.querySelector(
-          ".assistant-auto-detect-loading"
+          ".assayn-auto-detect-loading"
         );
         if (loadingIndicator) loadingIndicator.remove();
       }
@@ -1178,10 +1178,10 @@ function autoDetectAssistant() {
 }
 
 // Function to detect the best assistant using ChatGPT
-async function detectAssistantWithChatGPT(
+async function detectAssaynWithChatGPT(
   apiKey,
   emailThread,
-  availableAssistants,
+  availableAssayns,
   callback
 ) {
   try {
@@ -1194,11 +1194,11 @@ async function detectAssistantWithChatGPT(
       emailContent += `Content: ${message.content}\n\n`;
     });
 
-    // Format the list of available assistants
-    let assistantsList = "";
-    availableAssistants.forEach((assistant, index) => {
-      assistantsList += `${index + 1}. ${assistant.name} (ID: ${
-        assistant.id
+    // Format the list of available assayns
+    let assaynsList = "";
+    availableAssayns.forEach((assayn, index) => {
+      assaynsList += `${index + 1}. ${assayn.name} (ID: ${
+        assayn.id
       })\n`;
     });
 
@@ -1208,7 +1208,7 @@ async function detectAssistantWithChatGPT(
 ${emailContent}
 
 Here are my available assayns:
-${assistantsList}
+${assaynsList}
 
 Please analyze the email content and determine which assayn would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assayn, with no additional text or explanation.`;
 
@@ -1227,7 +1227,7 @@ Please analyze the email content and determine which assayn would be most approp
           {
             role: "system",
             content:
-              "You are a helpful assistant that analyzes email content and determines which specialized AI assayn would be best for replying to it. Respond only with the assayn ID, without any explanation or additional text.",
+              "You are a helpful AI that analyzes email content and determines which specialized AI assayn would be best for replying to it. Respond only with the assayn ID, without any explanation or additional text.",
           },
           {
             role: "user",
@@ -1248,42 +1248,42 @@ Please analyze the email content and determine which assayn would be most approp
     }
 
     // Extract the assistant ID from the response
-    const assistantIdResponse = data.choices[0].message.content.trim();
-    console.log("ChatGPT suggested assistant:", assistantIdResponse);
+    const assaynIdResponse = data.choices[0].message.content.trim();
+    console.log("ChatGPT suggested assayn:", assaynIdResponse);
 
     // Look for an assistant ID in the response
-    let bestAssistantId = null;
+    let bestAssaynId = null;
 
     // First try to match the exact ID
-    for (const assistant of availableAssistants) {
-      if (assistantIdResponse.includes(assistant.id)) {
-        bestAssistantId = assistant.id;
+    for (const assayn of availableAssayns) {
+      if (assaynIdResponse.includes(assayn.id)) {
+        bestAssaynId = assayn.id;
         break;
       }
     }
 
     // If no exact ID match, look for a name match
-    if (!bestAssistantId) {
-      for (const assistant of availableAssistants) {
+    if (!bestAssaynId) {
+      for (const assayn of availableAssayns) {
         if (
-          assistantIdResponse
+          assaynIdResponse
             .toLowerCase()
-            .includes(assistant.name.toLowerCase())
+            .includes(assayn.name.toLowerCase())
         ) {
-          bestAssistantId = assistant.id;
+          bestAssaynId = assayn.id;
           break;
         }
       }
     }
 
     // If still no match, use the first assistant as fallback
-    if (!bestAssistantId && availableAssistants.length > 0) {
-      bestAssistantId = availableAssistants[0].id;
+    if (!bestAssaynId && availableAssayns.length > 0) {
+      bestAssaynId = availableAssayns[0].id;
     }
 
-    callback(bestAssistantId);
+    callback(bestAssaynId);
   } catch (error) {
-    console.error("Error detecting assistant with ChatGPT:", error);
+    console.error("Error detecting assayn with ChatGPT:", error);
     callback(null);
   }
 }
@@ -1675,7 +1675,7 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
                   // If no selections exist yet, default to all assistants selected
                   if (Object.keys(selectedAssistants).length === 0) {
                     assistants.forEach((assistant) => {
-                      selectedAssistants[assistant.id] = true;
+                      selectedAssistants[assayn.id] = true;
                     });
                     // Save this initial selection
                     chrome.storage.local.set({
@@ -1738,9 +1738,9 @@ function updateAssistantDropdown(assistants) {
   // Add assistants to dropdown
   assistants.forEach((assistant) => {
     const option = document.createElement("option");
-    option.value = assistant.id;
+    option.value = assayn.id;
     option.textContent =
-      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+      assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
     dropdown.appendChild(option);
   });
 
@@ -1861,7 +1861,7 @@ function showManageAssistantsModal(loading = false) {
       // If no selections exist yet, default to all assistants selected
       if (Object.keys(selectedAssistants).length === 0) {
         assistants.forEach((assistant) => {
-          selectedAssistants[assistant.id] = true;
+          selectedAssistants[assayn.id] = true;
         });
       }
 
@@ -1906,15 +1906,15 @@ function showManageAssistantsModal(loading = false) {
 
       // Add each assistant as a checkbox item
       assistants.forEach((assistant) => {
-        const isChecked = selectedAssistants[assistant.id];
+        const isChecked = selectedAssistants[assayn.id];
         const assistantName =
-          assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+          assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
 
         modalContent += `
         <div class="assistant-item" style="display: flex; align-items: center; padding: 8px 0;">
           <label class="checkbox-container" style="display: flex; align-items: center; cursor: pointer; width: 100%;">
             <input type="checkbox" class="assistant-checkbox" data-id="${
-              assistant.id
+              assayn.id
             }" ${
           isChecked ? "checked" : ""
         } style="width: 20px; height: 20px; margin-right: 12px;">
@@ -2051,14 +2051,14 @@ function updateAssistantDropdownWithSelection(assistants, selectedAssistants) {
 
   // Filter assistants based on selection and add to dropdown
   const filteredAssistants = assistants.filter(
-    (assistant) => selectedAssistants[assistant.id]
+    (assistant) => selectedAssistants[assayn.id]
   );
 
   filteredAssistants.forEach((assistant) => {
     const option = document.createElement("option");
-    option.value = assistant.id;
+    option.value = assayn.id;
     option.textContent =
-      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
+      assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
     dropdown.appendChild(option);
   });
 
@@ -2081,7 +2081,7 @@ function updateAssistantDropdown(assistants) {
     // If no selections exist yet, default to all assistants selected
     if (Object.keys(selectedAssistants).length === 0) {
       assistants.forEach((assistant) => {
-        selectedAssistants[assistant.id] = true;
+        selectedAssistants[assayn.id] = true;
       });
       // Save this initial selection
       chrome.storage.local.set({ selected_assistants: selectedAssistants });
@@ -2267,7 +2267,7 @@ async function generateResponseWithAssistant(
           "OpenAI-Beta": "assistants=v2",
         },
         body: JSON.stringify({
-          assistant_id: assistantId,
+          assayn.id: assistantId,
         }),
       }
     );
@@ -2459,7 +2459,7 @@ function loadCachedAssistants() {
         // If no selections exist yet, default to all assistants selected
         if (Object.keys(selectedAssistants).length === 0) {
           result.openai_assistants.forEach((assistant) => {
-            selectedAssistants[assistant.id] = true;
+            selectedAssistants[assayn.id] = true;
           });
           // Save this initial selection
           chrome.storage.local.set({ selected_assistants: selectedAssistants });
