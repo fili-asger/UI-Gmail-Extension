@@ -251,20 +251,8 @@ function openAssistantUI(composeWindow) {
   // Create and insert assistant UI HTML
   modalContainer.innerHTML = createAssistantUIHTML(emailThread);
 
-  // Force modal to be visible with inline styles
-  modalContainer.style.cssText = `
-    position: fixed !important;
-    display: flex !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0,0,0,0.5) !important;
-    z-index: 9999999 !important;
-    justify-content: center !important;
-    align-items: center !important;
-    overflow: hidden !important;
-  `;
+  // Apply styles through the class - will be managed by CSS now instead of inline
+  modalContainer.className = "gmail-assistant-modal";
 
   // Format the email thread data and populate the email preview
   const formattedEmailContent = {
@@ -279,6 +267,44 @@ function openAssistantUI(composeWindow) {
 
   // Set up UI event handlers
   setupUIEventHandlers(composeWindow, emailThread);
+
+  // Add direct click handlers to magic wand buttons for reliability
+  const magicWandButtons = document.querySelectorAll(".magic-wand-button");
+  magicWandButtons.forEach((button) => {
+    button.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      console.log("Magic wand button clicked");
+
+      // Get the aria-label to determine which button this is
+      const ariaLabel = this.getAttribute("aria-label");
+
+      if (ariaLabel === "Auto-detect assistant") {
+        console.log("Magic wand clicked: Auto-detecting assistant");
+        autoDetectAssistant();
+      } else if (ariaLabel === "Auto-detect action") {
+        console.log("Magic wand clicked: Auto-detecting action");
+        autoDetectAction();
+      } else {
+        // Fallback to the old method of detection
+        const parentSection = this.closest("div").parentNode;
+        const labelElement = parentSection.querySelector("label");
+        if (labelElement && labelElement.getAttribute("for") === "assistant") {
+          console.log(
+            "Magic wand clicked (fallback): Auto-detecting assistant"
+          );
+          autoDetectAssistant();
+        } else if (
+          labelElement &&
+          labelElement.getAttribute("for") === "action"
+        ) {
+          console.log("Magic wand clicked (fallback): Auto-detecting action");
+          autoDetectAction();
+        }
+      }
+    });
+  });
 
   // Check API key and use cached assistants
   loadCachedAssistants();
@@ -333,146 +359,113 @@ function getEmailThreadContent() {
   };
 }
 
-// Create HTML for the assistant UI
+// Create the HTML for the assistant UI
 function createAssistantUIHTML(emailThread) {
   return `
+    <!-- Email Assistant UI -->
     <div class="modal-wrapper">
       <!-- Screen 1: Assistant Selection -->
       <div id="screen1" class="screen active">
         <!-- Header -->
-        <div class="gmail-header">
+        <div class="gmail-header" style="position: sticky; top: 0; z-index: 2;">
           <h2>AI Assistant</h2>
-          <div class="flex items-center">
-            <button id="desktopViewBtn" class="header-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" />
-              </svg>
-            </button>
-            <button id="settingsBtn" class="header-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-              </svg>
-            </button>
-            <button id="closeModalBtn" class="close-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          <div style="display: flex; align-items: center;">
+            <button class="close-btn" aria-label="Close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
               </svg>
             </button>
           </div>
         </div>
 
-        <!-- Content - Make it scrollable with max-height -->
-        <div class="p-4 space-y-4" style="max-height: 70vh; overflow-y: auto;">
+        <!-- Content - Make scrollable -->
+        <div class="p-4 space-y-4" style="overflow-y: auto; max-height: calc(80vh - 60px);">
           <!-- Assistant Selection -->
           <div>
-            <div class="flex items-center justify-between mb-1">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <label for="assistant">Select Assistant</label>
-              <div class="flex items-center">
-                <button id="refreshAssistantsBtn" class="refresh-btn" title="Refresh assistants list">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                  </svg>
-                </button>
-                <div class="magic-wand-button" aria-label="Auto-detect assistant">
-                  <span>🪄</span>
-                </div>
+              <div class="magic-wand-button" aria-label="Auto-detect assistant">
+                <span style="font-size: 18px;">🪄</span>
               </div>
             </div>
-            <div class="relative">
-              <select id="assistant">
+            <div style="position: relative;">
+              <select id="assistant" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="">Loading assistants...</option>
               </select>
               <div id="assistant-loading" class="assistant-loading hidden">
                 <div class="spinner-sm"></div>
               </div>
+              <div id="assistant-error" class="hidden" style="color: red; margin-top: 4px; font-size: 12px;"></div>
             </div>
-            <a href="#" class="text-blue-600 mt-1" id="editAssistantListBtn">
-              Edit Assistant List
-            </a>
-            <div id="assistant-error" class="text-red-500 text-xs mt-1 hidden"></div>
+            <button id="editAssistantListBtn" class="text-blue-600" style="font-size: 13px; margin-top: 4px; background: none; border: none; padding: 0; cursor: pointer; color: #1a73e8;">Edit Assistant List</button>
           </div>
 
           <!-- Action Selection -->
           <div>
-            <div class="flex items-center justify-between mb-1">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <label for="action">Select Action</label>
               <div class="magic-wand-button" aria-label="Auto-detect action">
-                <span>🪄</span>
+                <span style="font-size: 18px;">🪄</span>
               </div>
             </div>
-            <div class="relative">
-              <select id="action">
-                <option value="">Loading actions...</option>
+            <div style="position: relative;">
+              <select id="action" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="reply">Reply</option>
+                <option value="summarize">Summarize</option>
+                <option value="extract">Extract Information</option>
+                <option value="analyze">Analyze</option>
+                <option value="translate">Translate</option>
               </select>
             </div>
-            <a href="#" class="text-blue-600 mt-1" id="editActionListBtn">
-              Edit Action List
-            </a>
+            <button id="editActionListBtn" class="text-blue-600" style="font-size: 13px; margin-top: 4px; background: none; border: none; padding: 0; cursor: pointer; color: #1a73e8;">Edit Action List</button>
           </div>
 
-          <!-- Email Thread - Fixed height and scrollable -->
+          <!-- Email Preview -->
           <div>
-            <label>Email Thread</label>
-            <div id="emailPreview" style="height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; background-color: #f9f9f9;">
-              <!-- Will be populated by populateEmailPreview function -->
+            <label for="emailPreview">Email Content</label>
+            <div id="emailPreview" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background-color: #f9f9f9;">
+              <div style="text-align: center; color: #666;">
+                <div>Loading email content...</div>
+                <div style="display: inline-block; margin-top: 10px; width: 20px; height: 20px; border: 2px solid rgba(26, 115, 232, 0.2); border-radius: 50%; border-top-color: #1a73e8; animation: spin 1s linear infinite;"></div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Footer - Fixed at bottom -->
-        <div class="bg-gray-50 px-4 py-3 flex justify-end" style="border-top: 1px solid #e0e0e0;">
-          <button id="generateBtn" class="gmail-button">
-            Generate Response
-          </button>
+          <!-- Generate Button -->
+          <div style="text-align: right; padding-bottom: 10px;">
+            <button id="generateBtn" class="gmail-button">Generate</button>
+          </div>
         </div>
       </div>
 
       <!-- Screen 2: Generated Response -->
       <div id="screen2" class="screen">
         <!-- Header -->
-        <div class="gmail-header">
+        <div class="gmail-header" style="position: sticky; top: 0; z-index: 2;">
           <h2>Generated Response</h2>
-          <div class="flex items-center">
-            <button id="desktopViewBtn2" class="header-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" />
-              </svg>
-            </button>
-            <button id="settingsBtn2" class="header-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-              </svg>
-            </button>
-            <button id="closeModalBtn2" class="close-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          <div style="display: flex; align-items: center;">
+            <button class="close-btn" aria-label="Close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
               </svg>
             </button>
           </div>
         </div>
 
         <!-- Content -->
-        <div class="p-4" style="max-height: 70vh; overflow-y: auto;">
-          <!-- Rich Text Editor -->
-          <div id="responseText" class="border border-gray-300 rounded-md p-3 min-h-[200px] max-h-[300px] overflow-y-auto" contenteditable="true">
+        <div class="p-4 space-y-4" style="overflow-y: auto; max-height: calc(80vh - 60px);">
+          <div id="responseText" style="border: 1px solid #ddd; border-radius: 4px; padding: 16px; max-height: calc(50vh); overflow-y: auto;">
             <div class="spinner-container">
-              <div class="spinner"></div>
+              <div class="spinner" style="width: 32px; height: 32px; border: 3px solid rgba(26, 115, 232, 0.2); border-radius: 50%; border-top-color: #1a73e8; animation: spin 1s linear infinite;"></div>
             </div>
           </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="bg-gray-50 px-4 py-3 flex justify-between" style="border-top: 1px solid #e0e0e0;">
-          <button id="backBtn" class="text-gray-700 bg-white border border-gray-300 px-4 py-2 rounded-md text-sm font-medium">
-            Back
-          </button>
-          <div class="flex space-x-2">
-            <button id="regenerateBtn" class="text-blue-600 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium">
-              Regenerate
-            </button>
-            <button id="insertBtn" class="gmail-button">
-              Insert in Email
-            </button>
+          <div style="display: flex; justify-content: space-between; padding-bottom: 10px;">
+            <div>
+              <button id="backBtn" style="background-color: #f2f2f2; color: #444; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-weight: 500;">Back</button>
+              <button id="regenerateBtn" style="background-color: #f2f2f2; color: #444; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-weight: 500; margin-left: 8px;">Regenerate</button>
+            </div>
+            <button id="insertBtn" class="gmail-button">Insert</button>
           </div>
         </div>
       </div>
@@ -573,7 +566,11 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const closeButtons = modal.querySelectorAll(".close-btn");
   closeButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      modal.style.display = "none";
+      // Remove the modal from the DOM entirely instead of just hiding it
+      const modalContainer = document.getElementById("gmail-assistant-modal");
+      if (modalContainer) {
+        modalContainer.remove();
+      }
     });
   });
 
@@ -620,7 +617,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
 
       // Get the API key from storage first
-      chrome.storage.local.get(["openai_api_key"], function (result) {
+      safeStorage().get(["openai_api_key"], function (result) {
         if (!result.openai_api_key) {
           responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
           return;
@@ -658,7 +655,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       responseText.innerHTML = `<div class="spinner-container"><div class="spinner"></div></div>`;
 
       // Get the API key from storage
-      chrome.storage.local.get(["openai_api_key"], function (result) {
+      safeStorage().get(["openai_api_key"], function (result) {
         if (!result.openai_api_key) {
           responseText.innerHTML = `<p class="text-red-500">Error: API key not found. Please set your OpenAI API key in the extension settings.</p>`;
           return;
@@ -687,8 +684,11 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       // Insert the response into the Gmail compose field
       insertResponseIntoEmail(responseContent, composeWindow);
 
-      // Close the modal
-      modal.style.display = "none";
+      // Remove the modal from the DOM entirely instead of just hiding it
+      const modalContainer = document.getElementById("gmail-assistant-modal");
+      if (modalContainer) {
+        modalContainer.remove();
+      }
     });
   }
 
@@ -956,7 +956,7 @@ function showScreen(screenId) {
 function closeAssistantUI() {
   const modal = document.getElementById("gmail-assistant-modal");
   if (modal) {
-    modal.style.display = "none";
+    modal.remove();
   }
 }
 
@@ -1108,6 +1108,9 @@ function autoDetectAssistant() {
   const emailThread = getEmailThreadContent();
   if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
     console.error("No email thread content available for assistant detection");
+    alert(
+      "Error: No email content found to analyze. Please make sure you're viewing an email thread."
+    );
     return;
   }
 
@@ -1115,6 +1118,9 @@ function autoDetectAssistant() {
   const assistantSelect = document.getElementById("assistant");
   if (!assistantSelect || assistantSelect.options.length === 0) {
     console.error("No assistants available in the dropdown");
+    alert(
+      "Error: No assistants available. Please add assistants from your OpenAI account first."
+    );
     return;
   }
 
@@ -1137,10 +1143,28 @@ function autoDetectAssistant() {
     }
   }
 
-  // Get API key from storage
+  console.log(`Found ${availableAssistants.length} assistants to choose from`);
+
+  if (availableAssistants.length === 0) {
+    console.error("No assistants with valid IDs found in dropdown");
+    alert(
+      "Error: No assistants with valid IDs available. Please check your OpenAI assistants."
+    );
+    assistantSelect.disabled = false;
+    const loadingIndicator = document.querySelector(
+      ".assistant-auto-detect-loading"
+    );
+    if (loadingIndicator) loadingIndicator.remove();
+    return;
+  }
+
+  // Get API key from storage using the safe storage utility
   safeStorage().get(["openai_api_key"], function (result) {
     if (!result.openai_api_key) {
       console.error("No API key found for auto-detection");
+      alert(
+        "Error: No OpenAI API key found. Please add your API key in settings."
+      );
       // Remove loading indicator
       assistantSelect.disabled = false;
       const loadingIndicator = document.querySelector(
@@ -1197,7 +1221,9 @@ async function detectAssistantWithChatGPT(
     // Format the list of available assistants
     let assistantsList = "";
     availableAssistants.forEach((assistant, index) => {
-      assistantsList += `${index + 1}. ${assistant.name} (ID: ${assistant.id})\n`;
+      assistantsList += `${index + 1}. ${assistant.name} (ID: ${
+        assistant.id
+      })\n`;
     });
 
     // Construct the prompt for ChatGPT
@@ -1264,7 +1290,9 @@ Please analyze the email content and determine which assistant would be most app
     if (!bestAssistantId) {
       for (const assistant of availableAssistants) {
         if (
-          assistantIdResponse.toLowerCase().includes(assistant.name.toLowerCase())
+          assistantIdResponse
+            .toLowerCase()
+            .includes(assistant.name.toLowerCase())
         ) {
           bestAssistantId = assistant.id;
           break;
@@ -2071,7 +2099,7 @@ function updateAssistantDropdownWithSelection(assistants, selectedAssistants) {
 // Modify the updateAssistantDropdown function to use the selection logic
 function updateAssistantDropdown(assistants) {
   // Check if we have any selected assistants
-  chrome.storage.local.get(["selected_assistants"], function (result) {
+  safeStorage().get(["selected_assistants"], function (result) {
     let selectedAssistants = result.selected_assistants || {};
 
     // If no selections exist yet, default to all assistants selected
@@ -2080,7 +2108,7 @@ function updateAssistantDropdown(assistants) {
         selectedAssistants[assistant.id] = true;
       });
       // Save this initial selection
-      chrome.storage.local.set({ selected_assistants: selectedAssistants });
+      safeStorage().set({ selected_assistants: selectedAssistants });
     }
 
     // Update the dropdown using the selection
@@ -2146,9 +2174,25 @@ function addAssistantStyles() {
       flex-direction: column;
       height: 100%;
       max-height: 90vh;
+      overflow: hidden;
     }
     .screen.active {
       display: flex;
+    }
+    
+    /* Gmail modal global container */
+    #gmail-assistant-modal, .gmail-assistant-modal {
+      position: fixed !important;
+      display: flex !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: rgba(0,0,0,0.5) !important;
+      z-index: 9999999 !important;
+      justify-content: center !important;
+      align-items: center !important;
+      overflow: hidden !important;
     }
     
     /* Email preview styles */
@@ -2167,15 +2211,82 @@ function addAssistantStyles() {
     .email-content {
       margin-top: 8px;
     }
-    .email-content p {
-      margin-bottom: 8px;
+    
+    /* Animation keyframes for spinners */
+    @keyframes spinner-rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     
-    /* Spinner animation */
-    @keyframes spinner-rotate {
-      to { transform: rotate(360deg); }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Fix for CORS issues with Gmail images */
+    .assistant-btn {
+      width: 24px;
+      height: 24px;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 20px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      /* Use embedded SVG as data URI instead of an external image */
+      background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%235F6368"><path d="M21.928 11.607c-.202-.488-.635-.605-.928-.633V8c0-1.103-.897-2-2-2h-6V4.61c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5c-1.103 0-2 .897-2 2v2.997l-.082.006A1 1 0 0 0 1.99 12v2a1 1 0 0 0 1 1H3v5c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2v-5a1 1 0 0 0 1-1v-1.938a1.006 1.006 0 0 0-.072-.455zM5 20V8h14l.001 3.996L19 12v2h.001l.001 6H5z"/><ellipse cx="8.5" cy="12" rx="1.5" ry="2"/><ellipse cx="15.5" cy="12" rx="1.5" ry="2"/><path d="M12 18a3.001 3.001 0 0 1-2.83-2h5.66A3.001 3.001 0 0 1 12 18z"/></svg>');
+    }
+    
+    .assistant-btn:hover {
+      opacity: 1;
+    }
+    
+    /* Gmail button styles */
+    .gmail-button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .gmail-button:hover {
+      background-color: #1765cc;
+    }
+    
+    /* Gmail header styles */
+    .gmail-header {
+      background-color: #1a73e8;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .gmail-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   `;
+
   document.head.appendChild(style);
 }
 
