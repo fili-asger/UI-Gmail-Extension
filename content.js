@@ -1227,7 +1227,7 @@ Please analyze the email content and determine which assayn would be most approp
           {
             role: "system",
             content:
-              "You are a helpful assistant that analyzes email content and determines which specialized AI assistant would be best for replying to it. Respond only with the assistant ID, without any explanation or additional text.",
+              "You are a helpful assistant that analyzes email content and determines which specialized AI assayn would be best for replying to it. Respond only with the assayn ID, without any explanation or additional text.",
           },
           {
             role: "user",
