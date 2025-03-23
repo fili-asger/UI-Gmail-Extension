@@ -1212,6 +1212,17 @@ async function detectAssistantWithChatGPT(
   callback
 ) {
   try {
+    console.log(
+      "Auto-detect: Starting detection with availableAssistants:",
+      availableAssistants.length
+    );
+
+    if (!availableAssistants || availableAssistants.length === 0) {
+      console.error("Auto-detect: No assistants provided to detect from");
+      callback(null);
+      return;
+    }
+
     // Format the email thread into a string
     let emailContent = `Subject: ${emailThread.subject}\n\n`;
     emailThread.thread.forEach((message, index) => {
@@ -1239,7 +1250,7 @@ ${assistantsList}
 
 Please analyze the email content and determine which assistant would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assistant, with no additional text or explanation.`;
 
-    console.log("Sending auto-detect prompt to ChatGPT...");
+    console.log("Auto-detect: Sending prompt to ChatGPT");
 
     // Make the API request to ChatGPT 4o-mini
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -1266,17 +1277,21 @@ Please analyze the email content and determine which assistant would be most app
       }),
     });
 
-    const data = await response.json();
-
-    if (data.error) {
-      console.error("Error from ChatGPT:", data.error);
-      callback(null);
-      return;
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Auto-detect: OpenAI API error:", errorData);
+      throw new Error(errorData.error?.message || response.statusText);
     }
+
+    const data = await response.json();
+    console.log("Auto-detect: Got response from ChatGPT:", data);
 
     // Extract the assistant ID from the response
     const assistantIdResponse = data.choices[0].message.content.trim();
-    console.log("ChatGPT suggested assistant:", assistantIdResponse);
+    console.log(
+      "Auto-detect: ChatGPT suggested assistant:",
+      assistantIdResponse
+    );
 
     // Look for an assistant ID in the response
     let bestAssistantId = null;
@@ -1285,6 +1300,7 @@ Please analyze the email content and determine which assistant would be most app
     for (const assistant of availableAssistants) {
       if (assistantIdResponse.includes(assistant.id)) {
         bestAssistantId = assistant.id;
+        console.log("Auto-detect: Found exact ID match:", bestAssistantId);
         break;
       }
     }
@@ -1293,11 +1309,18 @@ Please analyze the email content and determine which assistant would be most app
     if (!bestAssistantId) {
       for (const assistant of availableAssistants) {
         if (
+          assistant.name &&
           assistantIdResponse
             .toLowerCase()
             .includes(assistant.name.toLowerCase())
         ) {
           bestAssistantId = assistant.id;
+          console.log(
+            "Auto-detect: Found name match:",
+            bestAssistantId,
+            "for name",
+            assistant.name
+          );
           break;
         }
       }
@@ -1306,12 +1329,25 @@ Please analyze the email content and determine which assistant would be most app
     // If still no match, use the first assistant as fallback
     if (!bestAssistantId && availableAssistants.length > 0) {
       bestAssistantId = availableAssistants[0].id;
+      console.log(
+        "Auto-detect: Using first assistant as fallback:",
+        bestAssistantId
+      );
     }
 
+    console.log("Auto-detect: Final selected assistant ID:", bestAssistantId);
     callback(bestAssistantId);
   } catch (error) {
     console.error("Error detecting assistant with ChatGPT:", error);
-    callback(null);
+    // Try to use the first available assistant as fallback
+    if (availableAssistants && availableAssistants.length > 0) {
+      console.log(
+        "Auto-detect: Error occurred, using first assistant as fallback"
+      );
+      callback(availableAssistants[0].id);
+    } else {
+      callback(null);
+    }
   }
 }
 
@@ -1563,8 +1599,8 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
     errorEl.textContent = "";
   }
 
-  // Get the API key from Chrome storage
-  chrome.storage.local.get(["openai_api_key"], function (result) {
+  // Get the API key from storage
+  safeStorage().get(["openai_api_key"], function (result) {
     if (!result.openai_api_key) {
       console.error("No OpenAI API key found in storage");
       showAssistantError(
@@ -1586,7 +1622,7 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v2", // Required beta header
+      "OpenAI-Beta": "assistants=v1", // Updated to v1 from v2 to match Quick Reply API calls
     };
 
     console.log("Making API call to:", apiUrl);
@@ -1688,40 +1724,34 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
           }
 
           // Save assistants to storage
-          chrome.storage.local.set(
-            { openai_assistants: assistants },
-            function () {
-              console.log("Assistants saved to storage:", assistants.length);
+          safeStorage().set({ openai_assistants: assistants }, function () {
+            console.log("Assistants saved to storage:", assistants.length);
 
-              // Get the selected assistants
-              chrome.storage.local.get(
-                ["selected_assistants"],
-                function (result) {
-                  let selectedAssistants = result.selected_assistants || {};
+            // Get the selected assistants
+            safeStorage().get(["selected_assistants"], function (result) {
+              let selectedAssistants = result.selected_assistants || {};
 
-                  // If no selections exist yet, default to all assistants selected
-                  if (Object.keys(selectedAssistants).length === 0) {
-                    assistants.forEach((assistant) => {
-                      selectedAssistants[assistant.id] = true;
-                    });
-                    // Save this initial selection
-                    chrome.storage.local.set({
-                      selected_assistants: selectedAssistants,
-                    });
-                  }
+              // If no selections exist yet, default to all assistants selected
+              if (Object.keys(selectedAssistants).length === 0) {
+                assistants.forEach((assistant) => {
+                  selectedAssistants[assistant.id] = true;
+                });
+                // Save this initial selection
+                safeStorage().set({
+                  selected_assistants: selectedAssistants,
+                });
+              }
 
-                  // Update dropdown if it exists
-                  updateAssistantDropdownWithSelection(
-                    assistants,
-                    selectedAssistants
-                  );
-
-                  // Execute callback if provided
-                  if (callback) callback();
-                }
+              // Update dropdown if it exists
+              updateAssistantDropdownWithSelection(
+                assistants,
+                selectedAssistants
               );
-            }
-          );
+
+              // Execute callback even on error
+              if (callback) callback(assistants);
+            });
+          });
         };
 
         // Check for pagination
@@ -1743,7 +1773,7 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
         if (loadingEl) loadingEl.classList.add("hidden");
 
         // Execute callback even on error
-        if (callback) callback();
+        if (callback) callback([]);
       });
   });
 }
@@ -2612,9 +2642,27 @@ function formatEmailThreadForPrompt(emailThread, action) {
 
 // Function to load cached assistants from local storage
 function loadCachedAssistants() {
-  chrome.storage.local.get(
+  console.log("Loading cached assistants from storage");
+
+  safeStorage().get(
     ["openai_assistants", "actions", "selected_assistants"],
     function (result) {
+      console.log(
+        "Storage contains openai_assistants:",
+        !!result.openai_assistants,
+        result.openai_assistants?.length || 0
+      );
+      console.log(
+        "Storage contains actions:",
+        !!result.actions,
+        result.actions?.length || 0
+      );
+      console.log(
+        "Storage contains selected_assistants:",
+        !!result.selected_assistants,
+        Object.keys(result.selected_assistants || {}).length
+      );
+
       // Update the assistant dropdown with cached assistants
       if (result.openai_assistants && result.openai_assistants.length > 0) {
         const selectedAssistants = result.selected_assistants || {};
@@ -2625,7 +2673,12 @@ function loadCachedAssistants() {
             selectedAssistants[assistant.id] = true;
           });
           // Save this initial selection
-          chrome.storage.local.set({ selected_assistants: selectedAssistants });
+          safeStorage().set(
+            { selected_assistants: selectedAssistants },
+            function () {
+              console.log("Initialized selected_assistants for all assistants");
+            }
+          );
         }
 
         // Update the dropdown using the selection
@@ -2635,7 +2688,14 @@ function loadCachedAssistants() {
         );
       } else {
         // If no cached assistants, fetch from API
-        fetchOpenAIAssistants();
+        console.log("No cached assistants found, fetching from API");
+        fetchOpenAIAssistants(true, function (assistants) {
+          console.log(
+            "fetchOpenAIAssistants callback received assistants:",
+            !!assistants,
+            assistants?.length || 0
+          );
+        });
       }
 
       // Update the actions dropdown with cached actions
@@ -2644,13 +2704,14 @@ function loadCachedAssistants() {
       } else {
         // If no cached actions, use defaults
         const defaultActions = [
-          "No action specified",
-          "Accept",
-          "Reject",
-          "Negotiate",
-          "Help",
+          "reply",
+          "summarize",
+          "extract",
+          "analyze",
+          "translate",
         ];
-        chrome.storage.local.set({ actions: defaultActions }, function () {
+        safeStorage().set({ actions: defaultActions }, function () {
+          console.log("Initialized default actions");
           updateActionDropdown(defaultActions);
         });
       }
@@ -2996,23 +3057,41 @@ function showFloatingStatus(message, type = "info") {
 function quickReplyWorkflow(emailThread, composeField) {
   // Step 1: Auto-detect the assistant
   showFloatingStatus("Detecting best assistant...", "loading");
+  console.log("Quick reply: Starting assistant detection workflow");
 
-  // First get available assistants
-  safeStorage().get(["cached_assistants"], async function (result) {
-    let assistants = result.cached_assistants || [];
+  // First get available assistants - fixed key name from cached_assistants to openai_assistants
+  safeStorage().get(["openai_assistants"], async function (result) {
+    let assistants = result.openai_assistants || [];
+    console.log(
+      "Quick reply: Initial assistants from storage:",
+      assistants.length,
+      assistants
+    );
 
     // If no cached assistants, try to fetch them
     if (!assistants || assistants.length === 0) {
       showFloatingStatus("Fetching assistants...", "loading");
+      console.log("Quick reply: No assistants in storage, fetching from API");
       // Try to get assistants first
       try {
         assistants = await new Promise((resolve) => {
-          fetchOpenAIAssistants(true, (fetchedAssistants) => {
-            resolve(fetchedAssistants || []);
+          fetchOpenAIAssistants(true, () => {
+            // After fetching, get the stored assistants
+            safeStorage().get(["openai_assistants"], function (freshResult) {
+              console.log(
+                "Quick reply: Freshly fetched assistants:",
+                freshResult.openai_assistants?.length,
+                freshResult.openai_assistants
+              );
+              resolve(freshResult.openai_assistants || []);
+            });
           });
         });
 
         if (!assistants || assistants.length === 0) {
+          console.error(
+            "Quick reply: Still no assistants available after fetch"
+          );
           showFloatingStatus("Error: No assistants available", "error");
           return;
         }
@@ -3026,20 +3105,38 @@ function quickReplyWorkflow(emailThread, composeField) {
     // Filter for favorite/selected assistants if configured
     safeStorage().get(["selected_assistants"], function (selectionResult) {
       let selectedAssistants = selectionResult.selected_assistants || {};
+      console.log(
+        "Quick reply: Selected assistants config:",
+        selectedAssistants
+      );
 
       // If we have selection preferences, filter the assistants
       if (Object.keys(selectedAssistants).length > 0) {
+        console.log(
+          "Quick reply: Filtering assistants by selection preferences"
+        );
         assistants = assistants.filter(
           (assistant) => selectedAssistants[assistant.id] === true
+        );
+        console.log(
+          "Quick reply: Filtered assistants:",
+          assistants.length,
+          assistants
         );
       }
 
       if (assistants.length === 0) {
+        console.error("Quick reply: No assistants selected after filtering");
         showFloatingStatus("Error: No assistants selected", "error");
         return;
       }
 
       // Now we have assistants, let's detect the best one for this email
+      console.log(
+        "Quick reply: Proceeding to detect best assistant from",
+        assistants.length,
+        "available assistants"
+      );
       detectBestAssistantForQuickReply(assistants, emailThread, composeField);
     });
   });
@@ -3113,8 +3210,11 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
   // Default to "reply" action for quick reply
   const action = "reply";
 
-  // Generate response using the assistant
-  const runId = `quickReply_${Date.now()}`;
+  console.log(
+    "Quick Reply: Generating response with assistant:",
+    assistant.name,
+    assistant.id
+  );
 
   // Create the prompt including email thread and action
   let prompt = `I need you to ${action} to this email conversation. Here's the thread:\n\n`;
@@ -3128,8 +3228,6 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
   });
 
   prompt += `Please create a concise, professional ${action} based on this thread.`;
-
-  console.log(`Generating quick reply with assistant: ${assistant.name}`);
 
   // Call the OpenAI API
   fetch("https://api.openai.com/v1/threads/runs", {
@@ -3153,11 +3251,19 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
   })
     .then((response) => {
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        return response.json().then((errorData) => {
+          console.error("Quick Reply: API error details:", errorData);
+          throw new Error(
+            `API error: ${response.status} - ${
+              errorData.error?.message || "Unknown error"
+            }`
+          );
+        });
       }
       return response.json();
     })
     .then((data) => {
+      console.log("Quick Reply: Thread and Run created:", data);
       // Store run ID and check status
       checkQuickReplyRunStatus(
         apiKey,
@@ -3168,7 +3274,7 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
       );
     })
     .catch((error) => {
-      console.error("Error generating response:", error);
+      console.error("Quick Reply: Error generating response:", error);
       showFloatingStatus(
         `Error: ${error.message || "Failed to generate response"}`,
         "error"
@@ -3185,6 +3291,12 @@ function checkQuickReplyRunStatus(
   composeField
 ) {
   // Update status
+  console.log(
+    "Quick Reply: Checking run status for run:",
+    runId,
+    "in thread:",
+    threadId
+  );
   showFloatingStatus(`${assistantName} is generating a reply...`, "loading");
 
   // Check run status with exponential backoff
@@ -3198,12 +3310,22 @@ function checkQuickReplyRunStatus(
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
+          return response.json().then((errorData) => {
+            console.error(
+              "Quick Reply: API error checking run status:",
+              errorData
+            );
+            throw new Error(
+              `API error: ${response.status} - ${
+                errorData.error?.message || "Unknown error"
+              }`
+            );
+          });
         }
         return response.json();
       })
       .then((data) => {
-        console.log("Run status:", data.status);
+        console.log("Quick Reply: Run status:", data.status);
 
         if (data.status === "completed") {
           // Get the messages from the thread
@@ -3218,16 +3340,18 @@ function checkQuickReplyRunStatus(
           data.status === "cancelled" ||
           data.status === "expired"
         ) {
-          throw new Error(
-            `Run ${data.status}: ${data.last_error?.message || "Unknown error"}`
-          );
+          const errorMsg =
+            data.last_error?.message ||
+            `Run ${data.status} without specific error message`;
+          console.error("Quick Reply: Run failed:", errorMsg);
+          throw new Error(errorMsg);
         } else {
           // Still in progress, check again after a delay
           setTimeout(checkStatus, 1000);
         }
       })
       .catch((error) => {
-        console.error("Error checking run status:", error);
+        console.error("Quick Reply: Error checking run status:", error);
         showFloatingStatus(
           `Error: ${error.message || "Failed to check run status"}`,
           "error"
@@ -3245,6 +3369,8 @@ function fetchQuickReplyMessages(
   assistantName,
   composeField
 ) {
+  console.log("Quick Reply: Fetching messages from thread:", threadId);
+
   fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
     method: "GET",
     headers: {
@@ -3254,11 +3380,24 @@ function fetchQuickReplyMessages(
   })
     .then((response) => {
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        return response.json().then((errorData) => {
+          console.error("Quick Reply: API error fetching messages:", errorData);
+          throw new Error(
+            `API error: ${response.status} - ${
+              errorData.error?.message || "Unknown error"
+            }`
+          );
+        });
       }
       return response.json();
     })
     .then((data) => {
+      console.log(
+        "Quick Reply: Got messages from thread:",
+        data.data.length,
+        "messages"
+      );
+
       // Find the assistant's reply (should be the latest message)
       const assistantMessages = data.data.filter(
         (msg) => msg.role === "assistant"
@@ -3270,6 +3409,7 @@ function fetchQuickReplyMessages(
 
       // Get the latest assistant message
       const latestMessage = assistantMessages[0];
+      console.log("Quick Reply: Latest assistant message:", latestMessage.id);
 
       // Extract text content
       let responseText = "";
@@ -3283,11 +3423,13 @@ function fetchQuickReplyMessages(
         throw new Error("Empty response from assistant");
       }
 
+      console.log("Quick Reply: Successfully extracted response text");
+
       // Insert the response
       insertQuickReplyIntoComposeField(responseText, composeField);
     })
     .catch((error) => {
-      console.error("Error fetching messages:", error);
+      console.error("Quick Reply: Error fetching messages:", error);
       showFloatingStatus(
         `Error: ${error.message || "Failed to fetch assistant's response"}`,
         "error"
@@ -3298,7 +3440,7 @@ function fetchQuickReplyMessages(
 // Insert quick reply into the compose field
 function insertQuickReplyIntoComposeField(responseText, composeField) {
   try {
-    console.log("Inserting quick reply");
+    console.log("Quick Reply: Inserting response into compose field");
 
     // Focus the compose field
     composeField.focus();
@@ -3310,8 +3452,12 @@ function insertQuickReplyIntoComposeField(responseText, composeField) {
 
     // Insert the text
     if (isEmpty) {
+      console.log("Quick Reply: Compose field is empty, replacing content");
       composeField.innerHTML = responseText;
     } else {
+      console.log(
+        "Quick Reply: Compose field has content, appending at cursor position"
+      );
       // If there's existing text, append to it
       const selection = window.getSelection();
       const range = selection.getRangeAt(0);
@@ -3336,9 +3482,10 @@ function insertQuickReplyIntoComposeField(responseText, composeField) {
     composeField.dispatchEvent(inputEvent);
 
     // Show success message
+    console.log("Quick Reply: Successfully inserted response");
     showFloatingStatus("Reply inserted successfully!", "success");
   } catch (error) {
-    console.error("Error inserting reply:", error);
+    console.error("Quick Reply: Error inserting reply:", error);
     showFloatingStatus("Error inserting reply. Please try again.", "error");
   }
 }
