@@ -366,14 +366,14 @@ function createAssistantUIHTML(emailThread) {
           <!-- Assistant Selection -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label for="assistant">Select Assayn</label>
+              <label for="assistant">Select Assistant</label>
               <div class="flex items-center">
                 <button id="refreshAssistantsBtn" class="refresh-btn" title="Refresh assistants list">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
                   </svg>
                 </button>
-                <div class="magic-wand-button" aria-label="Auto-detect assayn">
+                <div class="magic-wand-button" aria-label="Auto-detect assistant">
                   <span>🪄</span>
                 </div>
               </div>
@@ -387,7 +387,7 @@ function createAssistantUIHTML(emailThread) {
               </div>
             </div>
             <a href="#" class="text-blue-600 mt-1" id="editAssistantListBtn">
-              Edit Assayn List
+              Edit Assistant List
             </a>
             <div id="assistant-error" class="text-red-500 text-xs mt-1 hidden"></div>
           </div>
@@ -602,8 +602,8 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   if (generateBtn) {
     generateBtn.addEventListener("click", () => {
       // Get selected assistant ID
-      const assaynSelect = modal.querySelector("#assistant");
-      const assistantId = assaynSelect.value;
+      const assistantSelect = modal.querySelector("#assistant");
+      const assistantId = assistantSelect.value;
 
       // Check if an assistant is selected
       if (!assistantId) {
@@ -650,7 +650,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
   const regenerateBtn = modal.querySelector("#regenerateBtn");
   if (regenerateBtn) {
     regenerateBtn.addEventListener("click", () => {
-      const assaynSelect = modal.querySelector("#assistant");
+      const assistantSelect = modal.querySelector("#assistant");
       const action = modal.querySelector("#action").value;
 
       // Show loading indicator again
@@ -667,7 +667,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
         // Call OpenAI API again
         generateResponseWithAssistant(
           result.openai_api_key,
-          assaynSelect.value,
+          assistantSelect.value,
           action,
           emailThread,
           responseText
@@ -700,7 +700,7 @@ function setupUIEventHandlers(composeWindow, emailThread) {
       showManageAssistantsModal(true);
 
       // Then fetch the latest assistants
-      console.log("Edit Assayn List clicked, fetching latest assistants");
+      console.log("Edit Assistant List clicked, fetching latest assistants");
       fetchOpenAIAssistants(true, function () {
         // Update the modal with assistants after fetching
         showManageAssistantsModal(false);
@@ -933,7 +933,7 @@ function initAssistantUI() {
         .closest("div")
         .previousElementSibling.querySelector("label");
       if (parentLabel && parentLabel.getAttribute("for") === "assistant") {
-        autoDetectAssayn();
+        autoDetectAssistant();
       } else if (parentLabel && parentLabel.getAttribute("for") === "action") {
         autoDetectAction();
       }
@@ -1101,36 +1101,36 @@ function editAssistantList() {
 }
 
 // Function to auto-detect assistant
-function autoDetectAssayn() {
-  console.log("Auto-detecting assayn using ChatGPT...");
+function autoDetectAssistant() {
+  console.log("Auto-detecting assistant using ChatGPT...");
 
   // Get the email thread content
   const emailThread = getEmailThreadContent();
   if (!emailThread || !emailThread.thread || emailThread.thread.length === 0) {
-    console.error("No email thread content available for assayn detection");
+    console.error("No email thread content available for assistant detection");
     return;
   }
 
   // Get the available assistants from the dropdown
-  const assaynSelect = document.getElementById("assistant");
-  if (!assaynSelect || assaynSelect.options.length === 0) {
-    console.error("No assayns available in the dropdown");
+  const assistantSelect = document.getElementById("assistant");
+  if (!assistantSelect || assistantSelect.options.length === 0) {
+    console.error("No assistants available in the dropdown");
     return;
   }
 
   // Show loading indicator
-  assaynSelect.disabled = true;
+  assistantSelect.disabled = true;
   const loadingEl = document.createElement("div");
-  loadingEl.className = "assayn-auto-detect-loading";
+  loadingEl.className = "assistant-auto-detect-loading";
   loadingEl.innerHTML = `<div style="width: 20px; height: 20px; border: 2px solid rgba(26, 115, 232, 0.2); border-radius: 50%; border-top-color: #1a73e8; animation: spinner-rotate 1s linear infinite; position: absolute; right: 30px; top: 50%; transform: translateY(-50%);"></div>`;
-  assaynSelect.parentNode.appendChild(loadingEl);
+  assistantSelect.parentNode.appendChild(loadingEl);
 
   // Get the list of favorite assistants (options in the dropdown)
-  const availableAssayns = [];
-  for (let i = 0; i < assaynSelect.options.length; i++) {
-    const option = assaynSelect.options[i];
+  const availableAssistants = [];
+  for (let i = 0; i < assistantSelect.options.length; i++) {
+    const option = assistantSelect.options[i];
     if (option.value) {
-      availableAssayns.push({
+      availableAssistants.push({
         id: option.value,
         name: option.textContent,
       });
@@ -1142,34 +1142,34 @@ function autoDetectAssayn() {
     if (!result.openai_api_key) {
       console.error("No API key found for auto-detection");
       // Remove loading indicator
-      assaynSelect.disabled = false;
+      assistantSelect.disabled = false;
       const loadingIndicator = document.querySelector(
-        ".assayn-auto-detect-loading"
+        ".assistant-auto-detect-loading"
       );
       if (loadingIndicator) loadingIndicator.remove();
       return;
     }
 
     // Call ChatGPT to determine the best assistant
-    detectAssaynWithChatGPT(
+    detectAssistantWithChatGPT(
       result.openai_api_key,
       emailThread,
-      availableAssayns,
-      function (bestAssaynId) {
+      availableAssistants,
+      function (bestAssistantId) {
         // Set the selected assistant in the dropdown
-        if (bestAssaynId) {
-          for (let i = 0; i < assaynSelect.options.length; i++) {
-            if (assaynSelect.options[i].value === bestAssaynId) {
-              assaynSelect.selectedIndex = i;
+        if (bestAssistantId) {
+          for (let i = 0; i < assistantSelect.options.length; i++) {
+            if (assistantSelect.options[i].value === bestAssistantId) {
+              assistantSelect.selectedIndex = i;
               break;
             }
           }
         }
 
         // Remove loading indicator
-        assaynSelect.disabled = false;
+        assistantSelect.disabled = false;
         const loadingIndicator = document.querySelector(
-          ".assayn-auto-detect-loading"
+          ".assistant-auto-detect-loading"
         );
         if (loadingIndicator) loadingIndicator.remove();
       }
@@ -1178,10 +1178,10 @@ function autoDetectAssayn() {
 }
 
 // Function to detect the best assistant using ChatGPT
-async function detectAssaynWithChatGPT(
+async function detectAssistantWithChatGPT(
   apiKey,
   emailThread,
-  availableAssayns,
+  availableAssistants,
   callback
 ) {
   try {
@@ -1194,21 +1194,21 @@ async function detectAssaynWithChatGPT(
       emailContent += `Content: ${message.content}\n\n`;
     });
 
-    // Format the list of available assayns
-    let assaynsList = "";
-    availableAssayns.forEach((assayn, index) => {
-      assaynsList += `${index + 1}. ${assayn.name} (ID: ${assayn.id})\n`;
+    // Format the list of available assistants
+    let assistantsList = "";
+    availableAssistants.forEach((assistant, index) => {
+      assistantsList += `${index + 1}. ${assistant.name} (ID: ${assistant.id})\n`;
     });
 
     // Construct the prompt for ChatGPT
-    const prompt = `I need to determine which AI assayn from my list would be best suited to help me reply to this email thread. Here's the email content:
+    const prompt = `I need to determine which AI assistant from my list would be best suited to help me reply to this email thread. Here's the email content:
 
 ${emailContent}
 
-Here are my available assayns:
-${assaynsList}
+Here are my available assistants:
+${assistantsList}
 
-Please analyze the email content and determine which assayn would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assayn, with no additional text or explanation.`;
+Please analyze the email content and determine which assistant would be most appropriate for helping me reply. Only respond with the ID of the most appropriate assistant, with no additional text or explanation.`;
 
     console.log("Sending auto-detect prompt to ChatGPT...");
 
@@ -1225,7 +1225,7 @@ Please analyze the email content and determine which assayn would be most approp
           {
             role: "system",
             content:
-              "You are a helpful AI that analyzes email content and determines which specialized AI assayn would be best for replying to it. Respond only with the assayn ID, without any explanation or additional text.",
+              "You are a helpful AI that analyzes email content and determines which specialized AI assistant would be best for replying to it. Respond only with the assistant ID, without any explanation or additional text.",
           },
           {
             role: "user",
@@ -1246,40 +1246,40 @@ Please analyze the email content and determine which assayn would be most approp
     }
 
     // Extract the assistant ID from the response
-    const assaynIdResponse = data.choices[0].message.content.trim();
-    console.log("ChatGPT suggested assayn:", assaynIdResponse);
+    const assistantIdResponse = data.choices[0].message.content.trim();
+    console.log("ChatGPT suggested assistant:", assistantIdResponse);
 
     // Look for an assistant ID in the response
-    let bestAssaynId = null;
+    let bestAssistantId = null;
 
     // First try to match the exact ID
-    for (const assayn of availableAssayns) {
-      if (assaynIdResponse.includes(assayn.id)) {
-        bestAssaynId = assayn.id;
+    for (const assistant of availableAssistants) {
+      if (assistantIdResponse.includes(assistant.id)) {
+        bestAssistantId = assistant.id;
         break;
       }
     }
 
     // If no exact ID match, look for a name match
-    if (!bestAssaynId) {
-      for (const assayn of availableAssayns) {
+    if (!bestAssistantId) {
+      for (const assistant of availableAssistants) {
         if (
-          assaynIdResponse.toLowerCase().includes(assayn.name.toLowerCase())
+          assistantIdResponse.toLowerCase().includes(assistant.name.toLowerCase())
         ) {
-          bestAssaynId = assayn.id;
+          bestAssistantId = assistant.id;
           break;
         }
       }
     }
 
     // If still no match, use the first assistant as fallback
-    if (!bestAssaynId && availableAssayns.length > 0) {
-      bestAssaynId = availableAssayns[0].id;
+    if (!bestAssistantId && availableAssistants.length > 0) {
+      bestAssistantId = availableAssistants[0].id;
     }
 
-    callback(bestAssaynId);
+    callback(bestAssistantId);
   } catch (error) {
-    console.error("Error detecting assayn with ChatGPT:", error);
+    console.error("Error detecting assistant with ChatGPT:", error);
     callback(null);
   }
 }
@@ -1910,7 +1910,7 @@ function showManageAssistantsModal(loading = false) {
         <div class="assistant-item" style="display: flex; align-items: center; padding: 8px 0;">
           <label class="checkbox-container" style="display: flex; align-items: center; cursor: pointer; width: 100%;">
             <input type="checkbox" class="assistant-checkbox" data-id="${
-              assayn.id
+              assistant.id
             }" ${
           isChecked ? "checked" : ""
         } style="width: 20px; height: 20px; margin-right: 12px;">
