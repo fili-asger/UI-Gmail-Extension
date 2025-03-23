@@ -2130,26 +2130,26 @@ function updateAssistantDropdownWithSelection(assistants, selectedAssistants) {
 }
 
 // Modify the updateAssistantDropdown function to use the selection logic
-function updateAssistantDropdown(assistants) {
-  // Check if we have any selected assistants
-  safeStorage().get(["selected_assistants"], function (result) {
-    let selectedAssistants = result.selected_assistants || {};
-
-    // If no selections exist yet, default to all assistants selected
-    if (Object.keys(selectedAssistants).length === 0) {
-      assistants.forEach((assistant) => {
-        selectedAssistants[assistant.id] = true;
-      });
-      // Save this initial selection
-      safeStorage().set({ selected_assistants: selectedAssistants });
-    }
-
-    // Update the dropdown using the selection
-    updateAssistantDropdownWithSelection(assistants, selectedAssistants);
-  });
-}
-
-// Add these functions back that were accidentally removed
+// DUPLICATE REMOVED: function updateAssistantDropdown(assistants) {
+// DUPLICATE REMOVED:   // Check if we have any selected assistants
+// DUPLICATE REMOVED:   safeStorage().get(["selected_assistants"], function (result) {
+// DUPLICATE REMOVED:     let selectedAssistants = result.selected_assistants || {};
+// DUPLICATE REMOVED:
+// DUPLICATE REMOVED:     // If no selections exist yet, default to all assistants selected
+// DUPLICATE REMOVED:     if (Object.keys(selectedAssistants).length === 0) {
+// DUPLICATE REMOVED:       assistants.forEach((assistant) => {
+// DUPLICATE REMOVED:         selectedAssistants[assistant.id] = true;
+// DUPLICATE REMOVED:       });
+// DUPLICATE REMOVED:       // Save this initial selection
+// DUPLICATE REMOVED:       safeStorage().set({ selected_assistants: selectedAssistants });
+// DUPLICATE REMOVED:     }
+// DUPLICATE REMOVED:
+// DUPLICATE REMOVED:     // Update the dropdown using the selection
+// DUPLICATE REMOVED:     updateAssistantDropdownWithSelection(assistants, selectedAssistants);
+// DUPLICATE REMOVED:   });
+// DUPLICATE REMOVED: }
+// DUPLICATE REMOVED:
+// DUPLICATE REMOVED: // Add these functions back that were accidentally removed
 // Add some styles for the refresh button and loading spinner
 function addAssistantStyles() {
   const style = document.createElement("style");

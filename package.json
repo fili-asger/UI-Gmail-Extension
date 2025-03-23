@@ -6,7 +6,12 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "build": "webpack --config webpack.config.js",
+    "build:dev": "webpack --config webpack.config.js --mode=development",
+    "build:watch": "webpack --config webpack.config.js --watch --mode=development",
+    "clean": "rimraf dist",
+    "zip": "npm run build && cd dist && zip -r ../gmail-assistant-extension.zip ."
   },
   "keywords": [
     "gmail",
@@ -19,9 +24,17 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
     "@types/jest": "^29.5.12",
+    "babel-loader": "^9.1.3",
+    "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^12.0.2",
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0"
+    "jest-environment-jsdom": "^29.7.0",
+    "rimraf": "^6.0.1",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4"
   },
   "jest": {
     "testEnvironment": "jsdom",
@@ -30,7 +43,7 @@
       "jsx"
     ],
     "moduleNameMapper": {
-      "\\.(css|less|scss|sass)$": "<rootDir>/__mocks__/styleMock.js"
+      "\\.(css|less|scss|sass)$": "<rootDir>/test-mocks/styleMock.js"
     },
     "testMatch": [
       "**/__tests__/**/*.js?(x)",
@@ -40,7 +53,8 @@
       "<rootDir>/jest.setup.js"
     ],
     "testPathIgnorePatterns": [
-      "/node_modules/"
+      "/node_modules/",
+      "/dist/"
     ],
     "clearMocks": true
   }
