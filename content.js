@@ -1087,6 +1087,20 @@ function showRegenerateModal(emailThread) {
   regenerateModal.id = "regenerate-modal";
   regenerateModal.className = "settings-modal active";
 
+  // Force visibility with higher z-index
+  regenerateModal.style.cssText = `
+    position: fixed !important;
+    display: flex !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.5) !important;
+    z-index: 10000000 !important;
+    justify-content: center !important;
+    align-items: center !important;
+  `;
+
   // Create HTML for the modal
   regenerateModal.innerHTML = `
     <div class="settings-content">
