@@ -1671,7 +1671,7 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
                   // If no selections exist yet, default to all assistants selected
                   if (Object.keys(selectedAssistants).length === 0) {
                     assistants.forEach((assistant) => {
-                      selectedAssistants[assayn.id] = true;
+                      selectedAssistants[assistant.id] = true;
                     });
                     // Save this initial selection
                     chrome.storage.local.set({
@@ -1734,9 +1734,9 @@ function updateAssistantDropdown(assistants) {
   // Add assistants to dropdown
   assistants.forEach((assistant) => {
     const option = document.createElement("option");
-    option.value = assayn.id;
+    option.value = assistant.id;
     option.textContent =
-      assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
+      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
     dropdown.appendChild(option);
   });
 
@@ -1857,7 +1857,7 @@ function showManageAssistantsModal(loading = false) {
       // If no selections exist yet, default to all assistants selected
       if (Object.keys(selectedAssistants).length === 0) {
         assistants.forEach((assistant) => {
-          selectedAssistants[assayn.id] = true;
+          selectedAssistants[assistant.id] = true;
         });
       }
 
@@ -1902,9 +1902,9 @@ function showManageAssistantsModal(loading = false) {
 
       // Add each assistant as a checkbox item
       assistants.forEach((assistant) => {
-        const isChecked = selectedAssistants[assayn.id];
+        const isChecked = selectedAssistants[assistant.id];
         const assistantName =
-          assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
+          assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
 
         modalContent += `
         <div class="assistant-item" style="display: flex; align-items: center; padding: 8px 0;">
@@ -2047,14 +2047,14 @@ function updateAssistantDropdownWithSelection(assistants, selectedAssistants) {
 
   // Filter assistants based on selection and add to dropdown
   const filteredAssistants = assistants.filter(
-    (assistant) => selectedAssistants[assayn.id]
+    (assistant) => selectedAssistants[assistant.id]
   );
 
   filteredAssistants.forEach((assistant) => {
     const option = document.createElement("option");
-    option.value = assayn.id;
+    option.value = assistant.id;
     option.textContent =
-      assistant.name || `Assistant ${assayn.id.substring(0, 8)}`;
+      assistant.name || `Assistant ${assistant.id.substring(0, 8)}`;
     dropdown.appendChild(option);
   });
 
@@ -2077,7 +2077,7 @@ function updateAssistantDropdown(assistants) {
     // If no selections exist yet, default to all assistants selected
     if (Object.keys(selectedAssistants).length === 0) {
       assistants.forEach((assistant) => {
-        selectedAssistants[assayn.id] = true;
+        selectedAssistants[assistant.id] = true;
       });
       // Save this initial selection
       chrome.storage.local.set({ selected_assistants: selectedAssistants });
@@ -2455,7 +2455,7 @@ function loadCachedAssistants() {
         // If no selections exist yet, default to all assistants selected
         if (Object.keys(selectedAssistants).length === 0) {
           result.openai_assistants.forEach((assistant) => {
-            selectedAssistants[assayn.id] = true;
+            selectedAssistants[assistant.id] = true;
           });
           // Save this initial selection
           chrome.storage.local.set({ selected_assistants: selectedAssistants });
