@@ -6,4 +6,16 @@
 .Trashes
 Icon
 ._*
-*~ 
+*~
+
+# Dependencies
+node_modules/
+
+# Coverage reports
+coverage/
+
+# Build output
+dist/
+
+# ZIP files for distribution
+*.zip 
