@@ -1622,7 +1622,7 @@ function fetchOpenAIAssistants(forceRefresh = false, callback = null) {
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v1", // Updated to v1 from v2 to match Quick Reply API calls
+      "OpenAI-Beta": "assistants=v2",
     };
 
     console.log("Making API call to:", apiUrl);
@@ -3235,7 +3235,7 @@ function generateQuickReply(apiKey, assistant, emailThread, composeField) {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v1",
+      "OpenAI-Beta": "assistants=v2",
     },
     body: JSON.stringify({
       assistant_id: assistant.id,
@@ -3305,7 +3305,7 @@ function checkQuickReplyRunStatus(
       method: "GET",
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        "OpenAI-Beta": "assistants=v1",
+        "OpenAI-Beta": "assistants=v2",
       },
     })
       .then((response) => {
@@ -3375,7 +3375,7 @@ function fetchQuickReplyMessages(
     method: "GET",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "OpenAI-Beta": "assistants=v1",
+      "OpenAI-Beta": "assistants=v2",
     },
   })
     .then((response) => {
