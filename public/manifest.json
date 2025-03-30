@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail OpenAI Assistant",
+  "version": "0.1.0",
+  "description": "Uses OpenAI to help draft replies in Gmail via a side panel.",
+  "permissions": ["sidePanel", "scripting", "activeTab", "storage"],
+  "host_permissions": ["https://mail.google.com/*", "https://api.openai.com/*"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  }
+}

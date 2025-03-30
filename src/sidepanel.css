@@ -1,0 +1,350 @@
+/* Import Google Font */
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+/* Define Color Palette and Base Styles */
+:root {
+  --primary-color: #1a73e8; /* Google Blue */
+  --primary-color-dark: #1765cc;
+  --text-color-primary: #202124; /* Dark Grey */
+  --text-color-secondary: #5f6368; /* Medium Grey */
+  --background-color: #ffffff; /* White */
+  --border-color: #dadce0; /* Light Grey */
+  --hover-overlay: rgba(0, 0, 0, 0.04);
+  --button-text-color: #ffffff;
+
+  font-family: "Roboto", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-color-primary);
+  background-color: var(--background-color);
+
+  /* Override Vite defaults */
+  color-scheme: light; /* Force light mode */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Basic Reset */
+body,
+h1,
+p,
+button,
+input,
+textarea,
+pre,
+label,
+div {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 200px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Bar Styling */
+#top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  flex-shrink: 0;
+}
+
+#top-bar h1 {
+  font-size: 1.1rem;
+  color: var(--button-text-color);
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0;
+}
+
+#settings-btn {
+  background: none;
+  border: none;
+  color: var(--button-text-color);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
+  min-height: auto;
+  min-width: auto;
+  text-transform: none;
+  box-shadow: none;
+}
+
+#settings-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+/* Content View Styling */
+.content-view {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+  overflow-y: auto;
+  display: none;
+}
+
+.content-view.active-view {
+  display: flex;
+}
+
+/* Settings View Specifics */
+#settings-view h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+
+/* Adjust API key section now it's in settings */
+#settings-view label[for="api-key"] {
+  /* Styles might be okay, check if adjustments needed */
+}
+#settings-view input#api-key {
+  margin-bottom: 16px;
+}
+
+/* Style Back Button */
+#back-to-main-btn {
+  background-color: var(--text-color-secondary);
+  color: var(--button-text-color);
+  margin-top: 8px;
+}
+#back-to-main-btn:hover {
+  background-color: #4a4e51;
+}
+
+/* Assistant Edit View */
+#assistant-edit-view h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+#assistant-edit-view p {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 12px;
+}
+
+/* Search Input */
+#assistant-search-input {
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem; /* 14px */
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 100%;
+  margin-bottom: 12px; /* Space below search */
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+#assistant-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Controls for Select/Deselect All */
+.select-all-controls {
+  display: flex;
+  justify-content: flex-end; /* Align to the right */
+  gap: 10px;
+  margin-bottom: 8px; /* Space before list */
+}
+
+#assistant-list-container {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 300px; /* Limit height and allow scroll */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between checkboxes */
+  margin-bottom: 16px;
+}
+
+#assistant-list-container .assistant-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#assistant-list-container input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+#assistant-list-container label {
+  font-size: 0.875rem;
+  color: var(--text-color-primary);
+  cursor: pointer;
+  flex-grow: 1; /* Allow label to take space */
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: auto; /* Push buttons to bottom if space allows */
+  padding-top: 16px; /* Add some space above */
+  border-top: 1px solid var(--border-color);
+}
+
+/* Generic Secondary Button Style */
+.secondary-button {
+  background-color: var(--text-color-secondary);
+  color: var(--button-text-color);
+}
+.secondary-button:hover {
+  background-color: #4a4e51; /* Darker grey */
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.3),
+    0 4px 8px 3px rgba(60, 64, 67, 0.15);
+}
+
+/* Email Content Display - remove fixed height? */
+#email-content {
+  font-family: "Roboto", sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  max-height: none;
+  flex-grow: 1;
+  min-height: 50px;
+}
+
+/* Reply Textarea - remove fixed height? */
+textarea#reply-output {
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  transition: border-color 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+textarea#reply-output:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Assistant Select Dropdown */
+label[for="assistant-select"] {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text-color-secondary);
+}
+
+select#assistant-select {
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 100%;
+  height: 38px;
+  background-color: var(--background-color);
+  color: var(--text-color-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease-in-out;
+}
+
+select#assistant-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Adjust main button styling if needed inside flex */
+#main-content button {
+  flex-shrink: 0;
+}
+
+/* Adjust API Save button styling */
+#settings-view div > button#save-key-btn {
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+
+/* Assistant Select Header */
+.assistant-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: -8px; /* Reduce gap below header */
+}
+
+.assistant-selector-header label {
+  margin-bottom: 0; /* Remove margin from label */
+}
+
+/* Link-style button */
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  min-height: auto;
+  text-decoration: underline;
+  box-shadow: none;
+}
+.link-button:hover {
+  color: var(--primary-color-dark);
+  background: none;
+  box-shadow: none;
+  text-decoration: none;
+}
+
+/* Smaller link button variant */
+.small-link-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  min-height: auto;
+  text-decoration: underline;
+  box-shadow: none;
+}
+.small-link-button:hover {
+  color: var(--primary-color-dark);
+  background: none;
+  box-shadow: none;
+  text-decoration: none;
+}
