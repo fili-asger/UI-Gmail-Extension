@@ -397,22 +397,174 @@ select#assistant-select:focus {
 }
 
 /* Assistant Select Header */
-.assistant-selector-header {
+.assistant-selector-header,
+.instruction-selector-header {
+  /* Add instruction header */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: -8px; /* Reduce gap below header */
+  margin-bottom: -8px;
 }
 
-/* Style the button container in the header */
-.assistant-selector-header > div {
+.assistant-selector-header > div,
+.instruction-selector-header > div {
+  /* Style button container */
   display: flex;
   align-items: center;
-  gap: 8px; /* Space between AI Select and Edit List */
+  gap: 8px;
 }
 
-.assistant-selector-header label {
-  margin-bottom: 0; /* Remove margin from label */
+.assistant-selector-header label,
+.instruction-selector-header label {
+  /* Apply to both */
+  margin-bottom: 0;
+}
+
+/* Instruction Select Dropdown */
+select#instruction-select {
+  /* Inherit styles from assistant select for consistency */
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  width: 100%;
+  height: 38px;
+  background-color: var(--input-background);
+  color: var(--text-color-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+}
+select#instruction-select:hover {
+  background-color: #f1f3f4;
+}
+select#instruction-select:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Instruction Edit View */
+#instruction-edit-view h2 {
+  /* ... similar to other view titles ... */
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 16px; /* More space after title */
+}
+
+.add-item-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.add-item-form label {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.add-item-form input[type="text"] {
+  flex-grow: 1; /* Take remaining space */
+  /* Use existing input styles */
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: var(--input-background);
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+}
+.add-item-form input[type="text"]:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.add-item-form button {
+  /* Use primary button style, small */
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.2);
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+.add-item-form button:hover {
+  background-color: var(--primary-color-dark);
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+#instruction-edit-view p {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-color-secondary);
+  margin-bottom: 8px;
+}
+
+#instruction-list-container {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0; /* Remove padding for list items */
+  max-height: 250px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* No gap needed, list items will handle spacing */
+  margin-bottom: 16px;
+  background-color: var(--input-background);
+}
+
+#instruction-list-container .instruction-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+#instruction-list-container .instruction-item:last-child {
+  border-bottom: none;
+}
+
+#instruction-list-container .instruction-item span {
+  font-size: 0.875rem;
+  color: var(--text-color-primary);
+  flex-grow: 1;
+  margin-right: 8px;
+}
+
+#instruction-list-container .instruction-item button.delete-instruction-btn {
+  background: none;
+  border: none;
+  color: var(--text-color-secondary);
+  font-size: 1.2rem; /* Slightly larger delete icon */
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  border-radius: 50%;
+  min-height: auto;
+  min-width: auto;
+  flex-shrink: 0;
+}
+#instruction-list-container
+  .instruction-item
+  button.delete-instruction-btn:hover {
+  color: var(--text-color-primary);
+  background-color: var(--hover-overlay);
+}
+
+#instruction-edit-view .button-group {
+  /* Use existing button group styles */
+  /* Push buttons to bottom if space allows */
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Link-style button */

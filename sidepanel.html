@@ -50,6 +50,18 @@
         <option value="">Select assistant...</option>
       </select>
 
+      <!-- Instruction Selection Dropdown -->
+      <div class="instruction-selector-header">
+        <label for="instruction-select">Select Instruction:</label>
+        <button id="edit-instructions-link" class="link-button">
+          Edit List
+        </button>
+      </div>
+      <select id="instruction-select">
+        <option value="">No Instruction Selected</option>
+        <!-- Instructions loaded here -->
+      </select>
+
       <!-- Email Context -->
       <div class="content-block">
         <div class="context-header">
@@ -142,6 +154,29 @@
         <button id="cancel-assistant-filter-btn" class="secondary-button">
           Cancel
         </button>
+      </div>
+    </div>
+
+    <!-- Instruction Edit View Area -->
+    <div id="instruction-edit-view" class="content-view">
+      <h2>Edit Instructions</h2>
+      <div class="add-item-form">
+        <label for="new-instruction-input">New Instruction:</label>
+        <input
+          type="text"
+          id="new-instruction-input"
+          placeholder="e.g., Accept Offer"
+        />
+        <button id="add-instruction-btn">Add</button>
+      </div>
+      <p>Current Instructions:</p>
+      <div id="instruction-list-container">
+        <!-- List items will be populated here -->
+        <p>Loading instructions...</p>
+      </div>
+      <div class="button-group">
+        <button id="save-instructions-btn">Done</button>
+        <!-- Simple Done button -->
       </div>
     </div>
 
