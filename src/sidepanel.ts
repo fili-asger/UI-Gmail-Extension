@@ -67,6 +67,12 @@ const mainContentView = document.getElementById(
   "main-content"
 ) as HTMLDivElement;
 const settingsView = document.getElementById("settings-view") as HTMLDivElement;
+const assistantEditView = document.getElementById(
+  "assistant-edit-view"
+) as HTMLDivElement;
+const replyReviewView = document.getElementById(
+  "reply-review-view"
+) as HTMLDivElement;
 
 // Top Bar
 const settingsBtn = document.getElementById(
@@ -74,8 +80,8 @@ const settingsBtn = document.getElementById(
 ) as HTMLButtonElement;
 
 // Main View Elements
-const getEmailBtn = document.getElementById(
-  "get-email-btn"
+const refreshContextLink = document.getElementById(
+  "refresh-context-link"
 ) as HTMLButtonElement;
 const assistantSelectLabel = document.querySelector(
   'label[for="assistant-select"]'
@@ -86,14 +92,8 @@ const assistantSelect = document.getElementById(
 const generateReplyBtn = document.getElementById(
   "generate-reply-btn"
 ) as HTMLButtonElement;
-const insertReplyBtn = document.getElementById(
-  "insert-reply-btn"
-) as HTMLButtonElement;
 const statusDiv = document.getElementById("status");
 const emailContentPre = document.getElementById("email-content");
-const replyOutputTextarea = document.getElementById(
-  "reply-output"
-) as HTMLTextAreaElement;
 
 // Settings View Elements
 const apiKeyInput = document.getElementById("api-key") as HTMLInputElement;
@@ -106,9 +106,6 @@ const backBtn = document.getElementById(
 const editAssistantsLink = document.getElementById(
   "edit-assistants-link"
 ) as HTMLButtonElement;
-const assistantEditView = document.getElementById(
-  "assistant-edit-view"
-) as HTMLDivElement;
 const assistantListContainer = document.getElementById(
   "assistant-list-container"
 ) as HTMLDivElement;
@@ -130,12 +127,35 @@ const deselectAllBtn = document.getElementById(
   "deselect-all-assistants-btn"
 ) as HTMLButtonElement;
 
+// Reply Review View Elements (New)
+const replyOutputTextarea = document.getElementById(
+  "reply-output"
+) as HTMLTextAreaElement;
+const insertReplyBtn = document.getElementById(
+  "insert-reply-btn"
+) as HTMLButtonElement;
+const backToMainFromReviewBtn = document.getElementById(
+  "back-to-main-from-review-btn"
+) as HTMLButtonElement;
+const regenInstructionsInput = document.getElementById(
+  "regen-instructions"
+) as HTMLInputElement;
+const regenerateReplyBtn = document.getElementById(
+  "regenerate-reply-btn"
+) as HTMLButtonElement;
+
+// Global Spinner
+const globalSpinner = document.getElementById(
+  "global-spinner"
+) as HTMLDivElement;
+
 // State Variables
 let currentEmailContent: string | null = null;
 let currentReply: string | null = null;
 let openAIApiKey: string | null = null;
 let allAssistants: OpenAIAssistant[] = []; // Store the full list
 let visibleAssistantIds: string[] = []; // IDs to show in the dropdown
+let currentThreadId: string | null = null;
 
 // --- Constants ---
 const VISIBLE_ASSISTANTS_STORAGE_KEY = "visible_assistant_ids";
@@ -154,17 +174,19 @@ function updateStatus(message: string, isError: boolean = false) {
 
 // --- View Management ---
 function showMainView() {
-  if (mainContentView && settingsView && assistantEditView) {
+  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
     settingsView.classList.remove("active-view");
-    assistantEditView.classList.remove("active-view"); // Hide edit view
+    assistantEditView.classList.remove("active-view");
+    replyReviewView.classList.remove("active-view");
     mainContentView.classList.add("active-view");
   }
 }
 
 function showSettingsView() {
-  if (mainContentView && settingsView && assistantEditView) {
+  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
     mainContentView.classList.remove("active-view");
-    assistantEditView.classList.remove("active-view"); // Hide edit view
+    assistantEditView.classList.remove("active-view");
+    replyReviewView.classList.remove("active-view");
     settingsView.classList.add("active-view");
     // Pre-fill API key input only if it exists
     if (openAIApiKey !== null) {
@@ -174,12 +196,29 @@ function showSettingsView() {
 }
 
 function showAssistantEditView() {
-  if (mainContentView && settingsView && assistantEditView) {
+  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
     mainContentView.classList.remove("active-view");
-    settingsView.classList.remove("active-view"); // Hide settings view
+    settingsView.classList.remove("active-view");
+    replyReviewView.classList.remove("active-view");
     assistantEditView.classList.add("active-view");
     assistantSearchInput.value = ""; // Clear search on view show
     populateAssistantEditList(); // Populate full list initially
+  }
+}
+
+function showReplyReviewView() {
+  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
+    mainContentView.classList.remove("active-view");
+    settingsView.classList.remove("active-view");
+    assistantEditView.classList.remove("active-view");
+    replyReviewView.classList.add("active-view");
+  }
+}
+
+// --- Spinner Control ---
+function showSpinner(show: boolean) {
+  if (globalSpinner) {
+    globalSpinner.classList.toggle("active", show);
   }
 }
 
@@ -228,8 +267,10 @@ async function initialize() {
   if (
     !mainContentView ||
     !settingsView ||
+    !assistantEditView ||
+    !replyReviewView ||
     !settingsBtn ||
-    !getEmailBtn ||
+    !refreshContextLink ||
     !assistantSelectLabel ||
     !assistantSelect ||
     !generateReplyBtn ||
@@ -240,14 +281,16 @@ async function initialize() {
     !apiKeyInput ||
     !saveKeyBtn ||
     !backBtn ||
-    !assistantEditView ||
-    !editAssistantsLink ||
+    !assistantSearchInput ||
+    !selectAllBtn ||
+    !deselectAllBtn ||
     !assistantListContainer ||
     !saveAssistantFilterBtn ||
     !cancelAssistantFilterBtn ||
-    !selectAllBtn ||
-    !deselectAllBtn ||
-    !assistantSearchInput
+    !backToMainFromReviewBtn ||
+    !regenInstructionsInput ||
+    !regenerateReplyBtn ||
+    !globalSpinner
   ) {
     console.error(
       "One or more essential UI elements not found in sidepanel.html"
@@ -535,9 +578,8 @@ function cancelAssistantFilter() {
 // --- Event Listeners ---
 function setupEventListeners() {
   // Main View Listeners
-  getEmailBtn.addEventListener("click", handleGetEmailContent);
-  generateReplyBtn.addEventListener("click", handleGenerateReply);
-  insertReplyBtn.addEventListener("click", handleInsertReply);
+  refreshContextLink.addEventListener("click", handleGetEmailContent);
+  generateReplyBtn.addEventListener("click", () => handleGenerateReply());
   editAssistantsLink.addEventListener("click", showAssistantEditView);
 
   // Top Bar Listener
@@ -558,6 +600,11 @@ function setupEventListeners() {
   );
   saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
   cancelAssistantFilterBtn.addEventListener("click", cancelAssistantFilter);
+
+  // Reply Review View Listeners
+  insertReplyBtn.addEventListener("click", handleInsertReply);
+  backToMainFromReviewBtn.addEventListener("click", showMainView);
+  regenerateReplyBtn.addEventListener("click", handleRegenerateReply);
 
   // Listen for proactive updates from content script
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -622,51 +669,81 @@ async function handleGetEmailContent() {
 }
 
 // --- V2 ASSISTANTS API FLOW ---
-async function handleGenerateReply() {
+async function handleGenerateReply(isRegeneration: boolean = false) {
   const selectedAssistantId = assistantSelect.value;
+  const instructions = isRegeneration
+    ? regenInstructionsInput.value.trim()
+    : null;
 
-  if (!currentEmailContent) {
+  if (!isRegeneration && !currentEmailContent) {
     updateStatus("Please get the email content first.", true);
+    alert("Please get the email content first.");
     return;
   }
   if (!openAIApiKey) {
     updateStatus("OpenAI API Key is not set. Please save it first.", true);
+    alert("OpenAI API Key is not set. Please save it first.");
     return;
   }
   if (!selectedAssistantId) {
     updateStatus("Please select an assistant first.", true);
+    alert("Please select an assistant first.");
+    return;
+  }
+  if (isRegeneration && !currentThreadId) {
+    updateStatus("Cannot regenerate, original thread ID not found.", true);
+    alert(
+      "Cannot regenerate, original thread ID not found. Please generate a reply first."
+    );
     return;
   }
 
-  updateStatus("Generating reply with OpenAI Assistant (V2)...", false);
-  generateReplyBtn.disabled = true; // Disable button during generation
-  replyOutputTextarea.value = ""; // Clear previous reply
+  updateStatus("Generating reply...", false);
+  generateReplyBtn.disabled = true;
+  regenerateReplyBtn.disabled = true;
+  showSpinner(true);
+  replyOutputTextarea.value = "";
   currentReply = null;
 
+  let threadIdToUse: string;
+
   try {
-    // 1. Create a Thread
-    updateStatus("Creating thread...", false);
-    const thread = await fetchOpenAI<{ id: string }>("/threads", openAIApiKey, {
-      method: "POST",
-    });
-    const threadId = thread.id;
-    console.log("Created thread:", threadId);
+    if (isRegeneration) {
+      threadIdToUse = currentThreadId!;
+      console.log("Using existing thread for regeneration:", threadIdToUse);
+      const userMessage = instructions
+        ? `Regenerate the previous reply with the following instructions: ${instructions}`
+        : "Please regenerate the previous reply.";
+      await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey, {
+        method: "POST",
+        body: JSON.stringify({ role: "user", content: userMessage }),
+      });
+      console.log("Added regeneration instruction message.");
+    } else {
+      const thread = await fetchOpenAI<{ id: string }>(
+        "/threads",
+        openAIApiKey,
+        {
+          method: "POST",
+        }
+      );
+      threadIdToUse = thread.id;
+      currentThreadId = threadIdToUse;
+      console.log("Created new thread:", threadIdToUse);
 
-    // 2. Add the email content as a Message to the Thread
-    updateStatus("Adding message to thread...", false);
-    await fetchOpenAI(`/threads/${threadId}/messages`, openAIApiKey, {
-      method: "POST",
-      body: JSON.stringify({
-        role: "user",
-        content: currentEmailContent,
-      }),
-    });
-    console.log("Added message to thread.");
+      await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey, {
+        method: "POST",
+        body: JSON.stringify({
+          role: "user",
+          content: currentEmailContent,
+        }),
+      });
+      console.log("Added original email content message.");
+    }
 
-    // 3. Create a Run (using the selected Assistant)
-    updateStatus("Starting assistant run...", false);
+    console.log("Starting assistant run...");
     const run = await fetchOpenAI<OpenAPIRun>(
-      `/threads/${threadId}/runs`,
+      `/threads/${threadIdToUse}/runs`,
       openAIApiKey,
       {
         method: "POST",
@@ -676,23 +753,18 @@ async function handleGenerateReply() {
     const runId = run.id;
     console.log("Created run:", runId);
 
-    // 4. Poll the Run status until it's completed
-    updateStatus("Waiting for assistant response...", false);
     let runStatus: OpenAPIRun;
     let attempts = 0;
-    const maxAttempts = 20; // Approx 30 seconds max wait
+    const maxAttempts = 20;
     do {
-      await sleep(1500); // Wait 1.5 seconds between checks
+      await sleep(1500);
       runStatus = await fetchOpenAI<OpenAPIRun>(
-        `/threads/${threadId}/runs/${runId}`,
+        `/threads/${threadIdToUse}/runs/${runId}`,
         openAIApiKey,
         { method: "GET" }
       );
       console.log("Run status:", runStatus.status);
-      updateStatus(
-        `Waiting for assistant response... (${runStatus.status})`,
-        false
-      );
+      updateStatus(`Waiting... (${runStatus.status})`, false);
       attempts++;
     } while (
       (runStatus.status === "queued" || runStatus.status === "in_progress") &&
@@ -705,16 +777,13 @@ async function handleGenerateReply() {
       );
     }
 
-    // 5. List the Messages in the Thread (to get the assistant's reply)
-    updateStatus("Fetching assistant reply...", false);
     const messagesResponse = await fetchOpenAI<OpenAPIMessageListResponse>(
-      `/threads/${threadId}/messages?order=asc`,
+      `/threads/${threadIdToUse}/messages?order=asc`,
       openAIApiKey,
       { method: "GET" }
     );
     console.log("Messages received:", messagesResponse);
 
-    // Find the latest assistant message
     const assistantMessages = messagesResponse.data.filter(
       (msg) => msg.role === "assistant"
     );
@@ -727,7 +796,13 @@ async function handleGenerateReply() {
     ) {
       currentReply = latestAssistantMessage.content[0].text.value;
       replyOutputTextarea.value = currentReply;
-      updateStatus("Reply generated successfully.");
+      if (!isRegeneration) {
+        showReplyReviewView();
+      } else {
+        console.log("Reply regenerated successfully.");
+        updateStatus("Reply regenerated.");
+        regenInstructionsInput.value = "";
+      }
     } else {
       throw new Error(
         "Could not find a valid assistant text reply in the thread messages."
@@ -735,25 +810,35 @@ async function handleGenerateReply() {
     }
   } catch (error) {
     console.error("OpenAI API call failed:", error);
-    let errorMessage = "An unknown error occurred while generating the reply.";
+    let errorMessage = "Error generating reply.";
     if (error instanceof Error) {
       errorMessage = `Error generating reply: ${error.message}`;
     }
+    alert(errorMessage);
     updateStatus(errorMessage, true);
     currentReply = null;
-    replyOutputTextarea.value = "Error generating reply.";
+    replyOutputTextarea.value = errorMessage;
   } finally {
-    generateReplyBtn.disabled = false; // Re-enable button
+    generateReplyBtn.disabled = false;
+    regenerateReplyBtn.disabled = false;
+    showSpinner(false);
   }
+}
+
+function handleRegenerateReply() {
+  handleGenerateReply(true);
 }
 
 async function handleInsertReply() {
   if (!currentReply) {
-    updateStatus("No reply generated yet.", true);
+    // updateStatus("No reply generated yet.", true); // Status hidden
+    alert("No reply generated yet.");
     return;
   }
 
-  updateStatus("Sending reply to content script for insertion...");
+  // updateStatus("Sending reply...", false); // Status hidden
+  insertReplyBtn.disabled = true; // Disable button during attempt
+
   try {
     const [tab] = await chrome.tabs.query({
       active: true,
@@ -765,21 +850,27 @@ async function handleInsertReply() {
         replyText: currentReply,
       });
       if (response && response.success) {
-        updateStatus("Reply inserted into Gmail.");
+        // showMainView(); // DO NOT switch back to main view
+        console.log("Reply successfully inserted by content script.");
+        // Optionally provide feedback (e.g., temporarily change button text)
+        insertReplyBtn.textContent = "Inserted!";
+        setTimeout(() => {
+          insertReplyBtn.textContent = "Insert Reply into Gmail";
+        }, 1500);
       } else {
         const errorMsg = response?.error || "Unknown error inserting reply.";
-        updateStatus(`Failed to insert reply: ${errorMsg}`, true);
-        console.error("Content script failed to insert reply:", response);
+        alert(`Failed to insert reply: ${errorMsg}`);
       }
     } else {
-      updateStatus("Could not find active Gmail tab.", true);
+      // updateStatus("Could not find active Gmail tab.", true); // Status hidden
+      alert("Could not find active Gmail tab to insert reply.");
     }
   } catch (error) {
-    updateStatus(
-      "Error communicating with content script for insertion.",
-      true
-    );
+    // updateStatus("Error communicating...", true); // Status hidden
     console.error("Error sending insert message to content script:", error);
+    alert("Error communicating with content script for insertion.");
+  } finally {
+    insertReplyBtn.disabled = false; // Re-enable button unless successful feedback is shown
   }
 }
 

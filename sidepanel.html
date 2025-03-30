@@ -11,13 +11,23 @@
     <!-- Top Bar -->
     <div id="top-bar">
       <h1>Gmail Assistant</h1>
-      <button id="settings-btn" title="Settings">⚙️</button>
+      <button id="settings-btn" title="Settings">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          height="24"
+          viewBox="0 -960 960 960"
+          width="24"
+          fill="currentColor"
+        >
+          <path
+            d="M540-80q-109 0-184.5-75.5T280-340q0-36 11.5-68.5T324-468L94-799q-11-12-11-28t11-28q11-12 28.5-12t28.5 12l231 231q24-12 50-19t53-7q109 0 184.5 75.5T760-340q0 109-75.5 184.5T500-80Zm268-529L577-378q-5 6-12.5 9.5T549-365q-11 0-20-6l-40-26q-15-10-15.5-27.5T478-448q1-11 5.5-20t12.5-16L728-716q11-12 28-12t28 12q12 11 12 28.5T808-637ZM440-160v-110q-35-5-68.5-21T310-332l-96 35q-14 5-28-1.5T170-318L87-484q-6-13 1-27t20-21l95-40q-2-15-2.5-30.5T200-640q0-15 .5-30t2.5-30l-95-39q-13-6-20-20t-1-27l83-166q9-15 23.5-21.5T214-955l96 35q32-29 68.5-45T440-980v-110q0-17 11.5-28.5T480-1120h160q17 0 28.5 11.5T680-980v110q35 5 68.5 21t61.5 45l96-35q14-5 28.5 1.5T954-799l83 166q6 13-1 27t-20 21l-95 39q2 15 2.5 30t.5 30q0 15-.5 30.5T800-483l95 40q13 6 20 20t1 27l-83 166q-9 15-23.5 21.5T746-195l-96-35q-32 29-68.5 45T440-160Zm40-320q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Z"
+          />
+        </svg>
+      </button>
     </div>
 
     <!-- Main Content Area -->
     <div id="main-content" class="content-view active-view">
-      <button id="get-email-btn">Get Email Content</button>
-
       <!-- Assistant Selection Dropdown -->
       <div class="assistant-selector-header">
         <label for="assistant-select">Select Assistant:</label>
@@ -27,27 +37,22 @@
         <option value="">Loading assistants...</option>
       </select>
 
-      <button id="generate-reply-btn">Generate Reply</button>
+      <!-- Email Context -->
+      <div class="content-block">
+        <div class="context-header">
+          <label for="email-content">Email Context:</label>
+          <button id="refresh-context-link" class="link-button">Refresh</button>
+        </div>
+        <pre id="email-content"></pre>
+      </div>
+
+      <!-- Status div is hidden via CSS -->
       <div id="status"></div>
-      <pre
-        id="email-content"
-        style="
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          border: 1px solid #ccc;
-          padding: 5px;
-          margin-top: 10px;
-          max-height: 200px;
-          overflow-y: auto;
-        "
-      ></pre>
-      <textarea
-        id="reply-output"
-        rows="10"
-        style="width: 95%; margin-top: 10px"
-        placeholder="Generated reply will appear here..."
-      ></textarea>
-      <button id="insert-reply-btn">Insert Reply into Gmail</button>
+
+      <!-- Fixed Generate Button at bottom -->
+      <div class="fixed-bottom-button-container">
+        <button id="generate-reply-btn"><span>Generate Reply</span></button>
+      </div>
     </div>
 
     <!-- Settings View Area -->
@@ -56,7 +61,7 @@
       <label for="api-key">OpenAI API Key:</label>
       <input type="password" id="api-key" style="width: 80%" />
       <button id="save-key-btn">Save Key</button>
-      <button id="back-to-main-btn">Back</button>
+      <button id="back-to-main-btn" class="secondary-button">Back</button>
     </div>
 
     <!-- Assistant Edit View Area -->
@@ -90,6 +95,42 @@
           Cancel
         </button>
       </div>
+    </div>
+
+    <!-- Reply Review View Area -->
+    <div id="reply-review-view" class="content-view">
+      <div class="content-block">
+        <label for="reply-output">Generated Reply:</label>
+        <textarea
+          id="reply-output"
+          placeholder="Generated reply will appear here..."
+        ></textarea>
+      </div>
+
+      <!-- Regeneration Controls -->
+      <div class="regeneration-controls">
+        <label for="regen-instructions"
+          >Regeneration Instructions (optional):</label
+        >
+        <input
+          type="text"
+          id="regen-instructions"
+          placeholder="e.g., Make it more formal"
+        />
+        <button id="regenerate-reply-btn">Regenerate Reply</button>
+      </div>
+
+      <div class="button-group fixed-bottom-button-container">
+        <button id="insert-reply-btn">Insert Reply into Gmail</button>
+        <button id="back-to-main-from-review-btn" class="secondary-button">
+          Back
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Spinner -->
+    <div id="global-spinner" class="spinner-overlay">
+      <div class="spinner"></div>
     </div>
 
     <script type="module" src="./src/sidepanel.ts"></script>

@@ -9,8 +9,9 @@
   --text-color-secondary: #5f6368; /* Medium Grey */
   --background-color: #ffffff; /* White */
   --border-color: #dadce0; /* Light Grey */
-  --hover-overlay: rgba(0, 0, 0, 0.04);
+  --hover-overlay: rgba(60, 64, 67, 0.08); /* Slightly darker hover */
   --button-text-color: #ffffff;
+  --input-background: #f8f9fa; /* Light grey for inputs */
 
   font-family: "Roboto", sans-serif;
   line-height: 1.5;
@@ -53,14 +54,16 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
+  padding: 10px 14px; /* Slightly adjust padding */
   background-color: var(--primary-color);
   color: var(--button-text-color);
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
 }
 
 #top-bar h1 {
-  font-size: 1.1rem;
+  font-size: 1.05rem; /* Slightly smaller title */
+  font-weight: 500; /* Make title bolder */
   color: var(--button-text-color);
   border-bottom: none;
   padding-bottom: 0;
@@ -73,13 +76,18 @@ body {
   color: var(--button-text-color);
   font-size: 1.5rem;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px; /* Adjust padding for SVG */
   line-height: 1;
   border-radius: 50%;
   min-height: auto;
   min-width: auto;
   text-transform: none;
   box-shadow: none;
+  transition: background-color 0.15s ease-in-out;
+  /* Add flex centering */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #settings-btn:hover {
@@ -87,15 +95,35 @@ body {
   box-shadow: none;
 }
 
+#settings-btn svg {
+  display: block; /* Ensure SVG alignment */
+}
+
 /* Content View Styling */
 .content-view {
-  padding: 16px;
+  padding: 14px; /* Reduce padding */
   display: flex;
   flex-direction: column;
   gap: 16px;
   flex-grow: 1;
   overflow-y: auto;
   display: none;
+}
+
+/* Specific block styling within content */
+.content-block {
+  display: flex;
+  flex-direction: column;
+  /* Removes the gap applied by parent flex container */
+  margin-top: -12px; /* Adjust negative margin to fine-tune spacing above block */
+}
+.content-block:first-of-type {
+  margin-top: 0; /* No negative margin for the very first block */
+}
+
+/* Adjust label margin within main content blocks */
+#main-content .content-block > label {
+  margin-bottom: 4px; /* Keep small margin below label */
 }
 
 .content-view.active-view {
@@ -176,6 +204,7 @@ body {
   flex-direction: column;
   gap: 10px; /* Space between checkboxes */
   margin-bottom: 16px;
+  background-color: var(--input-background);
 }
 
 #assistant-list-container .assistant-item {
@@ -207,13 +236,13 @@ body {
 
 /* Generic Secondary Button Style */
 .secondary-button {
-  background-color: var(--text-color-secondary);
-  color: var(--button-text-color);
+  background-color: #e8eaed; /* Lighter grey */
+  color: var(--text-color-primary);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
 }
 .secondary-button:hover {
-  background-color: #4a4e51; /* Darker grey */
-  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.3),
-    0 4px 8px 3px rgba(60, 64, 67, 0.15);
+  background-color: #dadce0; /* Darker grey */
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.1);
 }
 
 /* Email Content Display - remove fixed height? */
@@ -225,11 +254,12 @@ body {
   word-wrap: break-word;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 8px;
-  background-color: #f8f9fa;
-  max-height: none;
-  flex-grow: 1;
-  min-height: 50px;
+  padding: 10px;
+  background-color: var(--input-background);
+  max-height: 250px; /* Set a max height */
+  overflow-y: auto; /* Enable vertical scrollbar when needed */
+  flex-grow: 0; /* Remove flex-grow */
+  min-height: 50px; /* Keep a minimum height */
 }
 
 /* Reply Textarea - remove fixed height? */
@@ -237,23 +267,27 @@ textarea#reply-output {
   font-family: "Roboto", sans-serif;
   font-size: 0.875rem;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid transparent; /* Remove border initially */
   border-radius: 4px;
   width: 100%;
   min-height: 80px;
   resize: vertical;
-  transition: border-color 0.2s ease-in-out;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
   flex-shrink: 0;
 }
 
 textarea#reply-output:focus {
   outline: none;
+  background-color: var(--background-color);
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px var(--primary-color);
 }
 
 /* Assistant Select Dropdown */
-label[for="assistant-select"] {
+label[for="assistant-select"],
+label[for="email-content"],
+label[for="reply-output"] {
   display: block;
   font-size: 0.875rem;
   font-weight: 500;
@@ -265,25 +299,132 @@ select#assistant-select {
   font-family: "Roboto", sans-serif;
   font-size: 0.875rem;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid transparent; /* Remove border initially */
   border-radius: 4px;
   width: 100%;
   height: 38px;
-  background-color: var(--background-color);
+  background-color: var(--input-background);
   color: var(--text-color-primary);
   cursor: pointer;
-  transition: border-color 0.2s ease-in-out;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
 }
 
 select#assistant-select:focus {
   outline: none;
+  background-color: var(--background-color);
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px var(--primary-color);
 }
 
 /* Adjust main button styling if needed inside flex */
+#main-content {
+  position: relative; /* Needed for fixed positioning context */
+  padding-bottom: 60px; /* Add padding to bottom to avoid overlap with fixed button */
+}
 #main-content button {
   flex-shrink: 0;
+}
+
+.fixed-bottom-button-container {
+  position: absolute; /* Fix to the bottom of the main content view */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 14px;
+  background-color: var(--background-color); /* Match background */
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1); /* Add top shadow */
+  display: flex; /* Allows button to take full width */
+}
+
+.fixed-bottom-button-container button {
+  width: 100%; /* Make button full width */
+}
+
+/* Reply Review View Specifics */
+#reply-review-view {
+  position: relative; /* For fixed positioning context */
+  padding-bottom: 74px; /* Add padding to avoid overlap (adjust if needed) */
+}
+
+#reply-review-view h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+
+#reply-review-view .content-block > textarea {
+  min-height: 150px; /* Adjust height for review view */
+  flex-grow: 1; /* Allow textarea to grow */
+}
+
+/* Regeneration Controls */
+.regeneration-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Smaller gap for these controls */
+  margin-top: -4px; /* Pull up slightly to reduce space */
+  margin-bottom: 16px; /* Space before fixed buttons */
+}
+.regeneration-controls label {
+  display: block;
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 500;
+  color: var(--text-color-secondary);
+}
+.regeneration-controls input[type="text"] {
+  /* Reuse existing input styles but maybe adjust slightly */
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  width: 100%;
+  background-color: var(--input-background);
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+}
+.regeneration-controls input[type="text"]:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+.regeneration-controls button#regenerate-reply-btn {
+  /* Use primary button style, maybe slightly smaller? */
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.2);
+  align-self: flex-start; /* Don't stretch full width */
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+.regeneration-controls button#regenerate-reply-btn:hover {
+  background-color: var(--primary-color-dark);
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+/* Adjust button group when it's fixed */
+#reply-review-view .button-group.fixed-bottom-button-container {
+  margin-top: 0; /* Remove margin-top when fixed */
+  padding-top: 0;
+  border-top: none;
+  position: absolute; /* Fix it */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 14px;
+  background-color: var(--background-color);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 12px;
+}
+
+#reply-review-view .button-group.fixed-bottom-button-container button {
+  flex-grow: 1; /* Allow buttons to share space */
+  width: auto; /* Override width: 100% from generic rule */
 }
 
 /* Adjust API Save button styling */
@@ -347,4 +488,124 @@ select#assistant-select:focus {
   background: none;
   box-shadow: none;
   text-decoration: none;
+}
+
+/* Buttons - General */
+button {
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  text-transform: none; /* Change to normal case */
+  letter-spacing: 0.01em;
+  min-height: 36px;
+  position: relative; /* Needed for spinner positioning */
+  display: inline-flex; /* Align text/spinner */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Spinner Animation */
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Global Spinner Styles */
+.spinner-overlay {
+  position: fixed; /* Cover the whole side panel */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.7); /* Semi-transparent white */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100; /* Ensure it's on top */
+  display: none; /* Hidden by default */
+}
+.spinner-overlay.active {
+  display: flex; /* Show when active */
+}
+.spinner {
+  box-sizing: border-box;
+  width: 40px; /* Spinner size */
+  height: 40px;
+  border-radius: 50%;
+  border: 4px solid rgba(0, 0, 0, 0.1); /* Lighter border */
+  border-top-color: var(--primary-color); /* Spinner color */
+  animation: spinner 0.8s linear infinite;
+}
+
+/* Primary Buttons */
+button#get-email-btn,
+button#generate-reply-btn,
+button#insert-reply-btn,
+button#save-key-btn,
+#assistant-edit-view .button-group button#save-assistant-filter-btn {
+  /* Be specific */
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.2); /* Softer shadow */
+}
+button#get-email-btn:hover,
+button#generate-reply-btn:hover,
+button#insert-reply-btn:hover,
+button#save-key-btn:hover,
+#assistant-edit-view .button-group button#save-assistant-filter-btn:hover {
+  background-color: var(--primary-color-dark);
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15); /* Slightly lift on hover */
+}
+
+/* Textarea & Inputs */
+textarea#reply-output,
+select#assistant-select,
+input#api-key,
+input#assistant-search-input {
+  background-color: var(--input-background);
+  border: 1px solid transparent; /* Remove border initially */
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+}
+textarea#reply-output:hover,
+select#assistant-select:hover,
+input#api-key:hover,
+input#assistant-search-input:hover {
+  background-color: #f1f3f4; /* Slightly darker on hover */
+}
+textarea#reply-output:focus,
+select#assistant-select:focus,
+input#api-key:focus,
+input#assistant-search-input:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Context Header (similar to assistant selector header) */
+.context-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px; /* Space between header and context box */
+}
+
+.context-header label {
+  margin-bottom: 0; /* Remove default label margin */
+}
+
+/* Status Display */
+#status {
+  font-size: 0.875rem; /* 14px */
+  color: var(--text-color-secondary);
+  min-height: 1.5em; /* Reserve space */
+  display: none; /* Hide the status div */
 }
