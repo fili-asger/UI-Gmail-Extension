@@ -70,9 +70,6 @@ const settingsView = document.getElementById("settings-view") as HTMLDivElement;
 const assistantEditView = document.getElementById(
   "assistant-edit-view"
 ) as HTMLDivElement;
-const replyReviewView = document.getElementById(
-  "reply-review-view"
-) as HTMLDivElement;
 
 // Top Bar
 const settingsBtn = document.getElementById(
@@ -92,11 +89,32 @@ const assistantSelect = document.getElementById(
 const aiSelectBtn = document.getElementById(
   "ai-select-btn"
 ) as HTMLButtonElement;
-const generateReplyBtn = document.getElementById(
-  "generate-reply-btn"
-) as HTMLButtonElement;
-const statusDiv = document.getElementById("status");
 const emailContentPre = document.getElementById("email-content");
+
+// Generated Reply Section (now in main view)
+const generatedReplySection = document.getElementById(
+  "generated-reply-section"
+) as HTMLDivElement;
+const regenerateLinkBtn = document.getElementById(
+  "regenerate-link-btn"
+) as HTMLButtonElement;
+const replyOutputTextarea = document.getElementById(
+  "reply-output"
+) as HTMLTextAreaElement;
+
+// Regeneration Controls (now in main view)
+const regenerationControls = document.getElementById(
+  "regeneration-controls"
+) as HTMLDivElement;
+const regenInstructionsInput = document.getElementById(
+  "regen-instructions"
+) as HTMLInputElement;
+
+// Main Action Button (fixed at bottom)
+const mainActionBtn = document.getElementById(
+  "main-action-btn"
+) as HTMLButtonElement;
+const mainActionBtnSpan = mainActionBtn.querySelector("span"); // Get span for text updates
 
 // Settings View Elements
 const apiKeyInput = document.getElementById("api-key") as HTMLInputElement;
@@ -130,23 +148,6 @@ const deselectAllBtn = document.getElementById(
   "deselect-all-assistants-btn"
 ) as HTMLButtonElement;
 
-// Reply Review View Elements (New)
-const replyOutputTextarea = document.getElementById(
-  "reply-output"
-) as HTMLTextAreaElement;
-const insertReplyBtn = document.getElementById(
-  "insert-reply-btn"
-) as HTMLButtonElement;
-const backToMainFromReviewBtn = document.getElementById(
-  "back-to-main-from-review-btn"
-) as HTMLButtonElement;
-const regenInstructionsInput = document.getElementById(
-  "regen-instructions"
-) as HTMLInputElement;
-const regenerateReplyBtn = document.getElementById(
-  "regenerate-reply-btn"
-) as HTMLButtonElement;
-
 // Global Spinner
 const globalSpinner = document.getElementById(
   "global-spinner"
@@ -159,6 +160,7 @@ let openAIApiKey: string | null = null;
 let allAssistants: OpenAIAssistant[] = []; // Store the full list
 let visibleAssistantIds: string[] = []; // IDs to show in the dropdown
 let currentThreadId: string | null = null;
+let currentActionButtonState: "generate" | "insert" | "regenerate" = "generate"; // Track button state
 
 // --- Constants ---
 const VISIBLE_ASSISTANTS_STORAGE_KEY = "visible_assistant_ids";
@@ -166,33 +168,33 @@ const CACHED_ASSISTANTS_KEY = "cached_all_assistants"; // New key
 
 // --- Status Updates ---
 function updateStatus(message: string, isError: boolean = false) {
-  // Ensure statusDiv exists before using it (check needed if called before init completes)
-  if (statusDiv) {
-    statusDiv.textContent = message;
-    statusDiv.style.color = isError ? "red" : "black";
-  } else {
-    console.warn("Status div not found when trying to update status:", message);
-  }
-  console.log(`Status: ${message}`);
+  // Status div is hidden, just log to console
+  // if (statusDiv) {
+  //   statusDiv.textContent = message;
+  //   statusDiv.style.color = isError ? "red" : "black";
+  // } else {
+  //     console.warn("Status div not found when trying to update status:", message)
+  // }
+  console.log(`Status Update (${isError ? "ERROR" : "INFO"}): ${message}`);
 }
 
 // --- View Management ---
 function showMainView() {
-  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
+  if (mainContentView && settingsView && assistantEditView) {
     settingsView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
-    replyReviewView.classList.remove("active-view");
     mainContentView.classList.add("active-view");
+    // Ensure reply/regen sections are hidden when returning
+    hideGeneratedReply();
   }
 }
 
 function showSettingsView() {
-  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
+  if (mainContentView && settingsView && assistantEditView) {
     mainContentView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
-    replyReviewView.classList.remove("active-view");
     settingsView.classList.add("active-view");
-    // Pre-fill API key input only if it exists
+    hideGeneratedReply(); // Hide reply stuff when going to settings
     if (openAIApiKey !== null) {
       apiKeyInput.value = openAIApiKey;
     }
@@ -204,6 +206,7 @@ async function showAssistantEditView() {
     mainContentView.classList.remove("active-view");
     settingsView.classList.remove("active-view");
     assistantEditView.classList.add("active-view");
+    hideGeneratedReply(); // Hide reply stuff when going to edit list
     assistantSearchInput.value = "";
 
     assistantListContainer.innerHTML =
@@ -229,12 +232,51 @@ async function showAssistantEditView() {
   }
 }
 
-function showReplyReviewView() {
-  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
-    mainContentView.classList.remove("active-view");
-    settingsView.classList.remove("active-view");
-    assistantEditView.classList.remove("active-view");
-    replyReviewView.classList.add("active-view");
+// Helper to show/hide reply sections
+function showGeneratedReply() {
+  if (generatedReplySection) generatedReplySection.style.display = "flex"; // Or 'block' if flex not needed
+  // Keep regen controls hidden initially
+  if (regenerationControls) regenerationControls.style.display = "none";
+}
+
+function hideGeneratedReply() {
+  if (generatedReplySection) generatedReplySection.style.display = "none";
+  if (regenerationControls) regenerationControls.style.display = "none";
+  // Optionally clear reply textarea and instructions
+  if (replyOutputTextarea) replyOutputTextarea.value = "";
+  if (regenInstructionsInput) regenInstructionsInput.value = "";
+  currentReply = null;
+}
+
+// Helper to update the main action button
+function setMainActionButtonState(
+  state: "generate" | "insert" | "regenerate",
+  disabled: boolean = false
+) {
+  currentActionButtonState = state;
+  mainActionBtn.disabled = disabled;
+  mainActionBtn.classList.remove(
+    "loading",
+    "button-generate",
+    "button-regenerate",
+    "button-insert"
+  ); // Remove all state classes
+
+  if (mainActionBtnSpan) {
+    switch (state) {
+      case "generate":
+        mainActionBtnSpan.textContent = "Generate Reply";
+        mainActionBtn.classList.add("button-generate");
+        break;
+      case "insert":
+        mainActionBtnSpan.textContent = "Insert Reply into Gmail";
+        mainActionBtn.classList.add("button-insert");
+        break;
+      case "regenerate":
+        mainActionBtnSpan.textContent = "Regenerate Reply";
+        mainActionBtn.classList.add("button-regenerate");
+        break;
+    }
   }
 }
 
@@ -284,6 +326,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// --- Helper Functions ---
+/** Resets the reply section and action button to the initial state */
+function resetReplyState() {
+  console.log("Resetting reply state.");
+  hideGeneratedReply(); // Hides sections, clears textarea, nullifies currentReply
+  setMainActionButtonState("generate"); // Reset button
+  currentThreadId = null; // Reset thread ID as the context has changed
+}
+
 // --- Initialization ---
 async function initialize() {
   // Check for all essential elements including new ones
@@ -291,16 +342,20 @@ async function initialize() {
     !mainContentView ||
     !settingsView ||
     !assistantEditView ||
-    !replyReviewView ||
+    !globalSpinner ||
     !settingsBtn ||
     !refreshContextLink ||
     !assistantSelectLabel ||
     !assistantSelect ||
-    !generateReplyBtn ||
-    !insertReplyBtn ||
-    !statusDiv ||
+    !aiSelectBtn ||
     !emailContentPre ||
+    !generatedReplySection ||
+    !regenerateLinkBtn ||
     !replyOutputTextarea ||
+    !regenerationControls ||
+    !regenInstructionsInput ||
+    !mainActionBtn ||
+    !mainActionBtnSpan ||
     !apiKeyInput ||
     !saveKeyBtn ||
     !backBtn ||
@@ -310,11 +365,7 @@ async function initialize() {
     !assistantListContainer ||
     !saveAssistantFilterBtn ||
     !cancelAssistantFilterBtn ||
-    !backToMainFromReviewBtn ||
-    !regenInstructionsInput ||
-    !regenerateReplyBtn ||
-    !globalSpinner ||
-    !aiSelectBtn
+    !editAssistantsLink
   ) {
     console.error(
       "One or more essential UI elements not found in sidepanel.html"
@@ -401,6 +452,10 @@ async function initialize() {
     populateAssistantDropdown();
     showSettingsView();
   }
+
+  // Ensure reply sections are hidden on load and button is in generate state
+  hideGeneratedReply();
+  setMainActionButtonState("generate");
 
   setupEventListeners();
 }
@@ -610,9 +665,13 @@ function cancelAssistantFilter() {
 function setupEventListeners() {
   // Main View Listeners
   refreshContextLink.addEventListener("click", handleGetEmailContent);
-  generateReplyBtn.addEventListener("click", () => handleGenerateReply());
+  // Main action button listener
+  mainActionBtn.addEventListener("click", handleMainActionClick);
   aiSelectBtn.addEventListener("click", handleAiSelectAssistant);
   editAssistantsLink.addEventListener("click", showAssistantEditView);
+  // New listeners for reply section
+  regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
+  regenInstructionsInput.addEventListener("input", handleRegenInstructionInput);
 
   // Top Bar Listener
   settingsBtn.addEventListener("click", showSettingsView);
@@ -633,35 +692,31 @@ function setupEventListeners() {
   saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
   cancelAssistantFilterBtn.addEventListener("click", cancelAssistantFilter);
 
-  // Reply Review View Listeners
-  insertReplyBtn.addEventListener("click", handleInsertReply);
-  backToMainFromReviewBtn.addEventListener("click", showMainView);
-  regenerateReplyBtn.addEventListener("click", handleRegenerateReply);
-
   // Listen for proactive updates AND quick reply flow trigger
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateEmailContent") {
       console.log("Received proactive email content update:", message);
       if (message.content) {
         currentEmailContent = message.content;
-        emailContentPre!.textContent = currentEmailContent;
+        if (emailContentPre) emailContentPre!.textContent = currentEmailContent; // Update display
         updateStatus("Email content updated automatically.");
-        // Maybe clear the reply textarea when context changes?
-        // replyOutputTextarea.value = '';
-        // currentReply = null;
+        // **** RESET REPLY STATE ****
+        resetReplyState();
+        // **************************
       } else {
         // Handle potential error reported by content script
         updateStatus(
           `Error auto-updating content: ${message.error || "Unknown error"}`,
           true
         );
-        emailContentPre!.textContent = `Error auto-updating content: ${
-          message.error || "Unknown error"
-        }`;
+        if (emailContentPre)
+          emailContentPre!.textContent = `Error auto-updating content: ${
+            message.error || "Unknown error"
+          }`;
         currentEmailContent = null;
       }
       sendResponse({ success: true });
-      return false; // Synchronous response
+      return false;
     }
 
     if (message.action === "execute-quick-reply-flow") {
@@ -687,12 +742,11 @@ function setupEventListeners() {
         return false;
       }
 
-      // Store content
       currentEmailContent = message.emailContent;
-      emailContentPre!.textContent = currentEmailContent;
+      if (emailContentPre) emailContentPre!.textContent = currentEmailContent;
 
-      // Start the sequence: AI Select -> Generate -> Insert
-      // Use async IIFE (Immediately Invoked Function Expression) to handle the async chain
+      // Reset thread ID before starting quick reply sequence
+      currentThreadId = null;
       (async () => {
         try {
           console.log("Quick Reply: Starting AI Select...");
@@ -725,9 +779,8 @@ function setupEventListeners() {
         }
       })();
 
-      // Acknowledge the message, but the process runs async
       sendResponse({ success: true, message: "Quick reply flow initiated" });
-      return false; // Indicate synchronous response as the main work is async
+      return false;
     }
 
     // Default for unhandled messages
@@ -738,8 +791,8 @@ function setupEventListeners() {
 // --- Action Handlers ---
 async function handleGetEmailContent() {
   updateStatus("Requesting email content from content script...");
-  emailContentPre!.textContent = ""; // Clear previous content
-  currentEmailContent = null;
+  if (emailContentPre) emailContentPre!.textContent = ""; // Clear previous content visually
+  currentEmailContent = null; // Clear state
 
   try {
     const [tab] = await chrome.tabs.query({
@@ -752,8 +805,11 @@ async function handleGetEmailContent() {
       });
       if (response && response.content) {
         currentEmailContent = response.content;
-        emailContentPre!.textContent = currentEmailContent;
+        if (emailContentPre) emailContentPre!.textContent = currentEmailContent; // Update display
         updateStatus("Email content received.");
+        // **** RESET REPLY STATE ****
+        resetReplyState();
+        // **************************
       } else {
         updateStatus("Failed to get email content from content script.", true);
         console.error("No response or content from content script", response);
@@ -798,8 +854,8 @@ async function handleGenerateReply(isRegeneration: boolean = false) {
   }
 
   updateStatus("Generating reply...", false);
-  generateReplyBtn.disabled = true;
-  regenerateReplyBtn.disabled = true;
+  setMainActionButtonState(isRegeneration ? "regenerate" : "generate", true); // Disable button
+  mainActionBtn.classList.add("loading"); // Add spinner style
   showSpinner(true);
   replyOutputTextarea.value = "";
   currentReply = null;
@@ -895,13 +951,11 @@ async function handleGenerateReply(isRegeneration: boolean = false) {
     ) {
       currentReply = latestAssistantMessage.content[0].text.value;
       replyOutputTextarea.value = currentReply;
-      if (!isRegeneration) {
-        showReplyReviewView();
-      } else {
-        console.log("Reply regenerated successfully.");
-        updateStatus("Reply regenerated.");
-        regenInstructionsInput.value = "";
-      }
+      showGeneratedReply(); // Show the reply section
+      setMainActionButtonState("insert"); // Set button to Insert mode
+      regenerationControls.style.display = "none"; // Hide regen controls after success
+      regenInstructionsInput.value = ""; // Clear instructions
+      updateStatus(isRegeneration ? "Reply regenerated." : "Reply generated.");
     } else {
       throw new Error(
         "Could not find a valid assistant text reply in the thread messages."
@@ -917,26 +971,37 @@ async function handleGenerateReply(isRegeneration: boolean = false) {
     updateStatus(errorMessage, true);
     currentReply = null;
     replyOutputTextarea.value = errorMessage;
+    setMainActionButtonState(isRegeneration ? "regenerate" : "generate"); // Reset button state on error
   } finally {
-    generateReplyBtn.disabled = false;
-    regenerateReplyBtn.disabled = false;
+    mainActionBtn.classList.remove("loading"); // Remove spinner style
     showSpinner(false);
   }
 }
 
-function handleRegenerateReply() {
-  handleGenerateReply(true);
+function handleRegenerateLinkClick() {
+  if (regenerationControls) {
+    regenerationControls.style.display = "flex"; // Show the controls
+    regenInstructionsInput.focus();
+    // Change button state only if instructions are empty initially
+    if (!regenInstructionsInput.value) {
+      setMainActionButtonState("regenerate");
+    }
+  }
+}
+
+function handleRegenInstructionInput() {
+  // If instructions are typed, ensure the button is set to Regenerate
+  setMainActionButtonState("regenerate");
 }
 
 async function handleInsertReply() {
+  currentReply = replyOutputTextarea.value.trim(); // Get current text from textarea
   if (!currentReply) {
-    // updateStatus("No reply generated yet.", true); // Status hidden
-    alert("No reply generated yet.");
+    alert("There is no reply text to insert.");
     return;
   }
 
-  // updateStatus("Sending reply...", false); // Status hidden
-  insertReplyBtn.disabled = true; // Disable button during attempt
+  setMainActionButtonState("insert", true); // Disable button
 
   try {
     const [tab] = await chrome.tabs.query({
@@ -948,28 +1013,46 @@ async function handleInsertReply() {
         action: "insertReply",
         replyText: currentReply,
       });
-      if (response && response.success) {
-        // showMainView(); // DO NOT switch back to main view
+
+      console.log("Response from content script (insertReply):", response); // Log the response
+
+      if (response?.success === true) {
+        // Check explicitly for true
         console.log("Reply successfully inserted by content script.");
-        // Optionally provide feedback (e.g., temporarily change button text)
-        insertReplyBtn.textContent = "Inserted!";
+        if (mainActionBtnSpan) mainActionBtnSpan.textContent = "Inserted!";
         setTimeout(() => {
-          insertReplyBtn.textContent = "Insert Reply into Gmail";
+          if (currentActionButtonState === "insert") {
+            setMainActionButtonState("insert");
+          }
         }, 1500);
       } else {
+        // Log potential error but DON'T alert unless success is explicitly false
         const errorMsg = response?.error || "Unknown error inserting reply.";
-        alert(`Failed to insert reply: ${errorMsg}`);
+        console.warn(
+          "Insert successful confirmation not received or error reported:",
+          errorMsg,
+          "Response:",
+          response
+        );
+        if (response?.success === false) {
+          // Only alert if success is explicitly false
+          alert(`Failed to insert reply: ${errorMsg}`);
+        }
+        // Re-enable button if we didn't get explicit success
+        setMainActionButtonState("insert");
       }
     } else {
-      // updateStatus("Could not find active Gmail tab.", true); // Status hidden
       alert("Could not find active Gmail tab to insert reply.");
+      setMainActionButtonState("insert"); // Re-enable button
     }
   } catch (error) {
-    // updateStatus("Error communicating...", true); // Status hidden
     console.error("Error sending insert message to content script:", error);
-    alert("Error communicating with content script for insertion.");
-  } finally {
-    insertReplyBtn.disabled = false; // Re-enable button unless successful feedback is shown
+    let errorMsg = "Error communicating with content script for insertion.";
+    if (error instanceof Error) {
+      errorMsg += ` ${error.message}`;
+    }
+    alert(errorMsg);
+    setMainActionButtonState("insert"); // Re-enable button on communication error
   }
 }
 
@@ -1108,6 +1191,19 @@ Based on the email content and the likely purpose of each assistant (inferred fr
     updateStatus(errorMsg, true);
   } finally {
     showSpinner(false);
+  }
+}
+
+// New handler for the main action button click
+function handleMainActionClick() {
+  switch (currentActionButtonState) {
+    case "generate":
+    case "regenerate":
+      handleGenerateReply(currentActionButtonState === "regenerate");
+      break;
+    case "insert":
+      handleInsertReply();
+      break;
   }
 }
 

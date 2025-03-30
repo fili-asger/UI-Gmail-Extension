@@ -312,6 +312,21 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
   if (message.action === "insertReply") {
     console.log("Attempting to insert reply:", message.replyText);
+
+    // 1. Check if reply field is open, try to open if not
+    if (!isReplyFieldOpen()) {
+      console.log("Reply field not open for insert, attempting to open...");
+      const opened = await openReplyField();
+      if (!opened) {
+        console.error("Failed to open reply field before inserting.");
+        sendResponse({ success: false, error: "Could not open reply field." });
+        return true; // Indicate async response handled
+      }
+      // Add a small delay after opening seems necessary sometimes
+      await sleep(200);
+    }
+
+    // 2. Try to find the reply field and insert
     const primarySelector =
       'div[aria-label="Meddelelsens tekst"][contenteditable="true"]';
     const replyBox = document.querySelector(primarySelector);
@@ -336,14 +351,17 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
         sendResponse({ success: true });
       } else {
         console.error(
-          "Could not find Gmail reply box using primary or fallback selectors."
+          "Could not find Gmail reply box using primary or fallback selectors after attempting to open."
         );
-        sendResponse({ success: false, error: "Reply box not found" });
+        sendResponse({
+          success: false,
+          error: "Reply box not found after attempt",
+        });
       }
     }
-    return true;
+    return true; // Keep message channel open
   }
 
-  // Optional: Handle other message types or return false if not handled
-  // return false;
+  // Default for unhandled messages
+  return false;
 });

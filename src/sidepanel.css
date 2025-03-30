@@ -12,6 +12,11 @@
   --hover-overlay: rgba(60, 64, 67, 0.08); /* Slightly darker hover */
   --button-text-color: #ffffff;
   --input-background: #f8f9fa; /* Light grey for inputs */
+  /* Add new colors */
+  --warning-color: #fbbc04; /* Yellow */
+  --warning-color-dark: #f2a600;
+  --success-color: #34a853; /* Green */
+  --success-color-dark: #2d9047;
 
   font-family: "Roboto", sans-serif;
   line-height: 1.5;
@@ -245,7 +250,7 @@ body {
   box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.1);
 }
 
-/* Email Content Display - remove fixed height? */
+/* Email Content Display */
 #email-content {
   font-family: "Roboto", sans-serif;
   font-size: 0.8125rem;
@@ -256,32 +261,21 @@ body {
   border-radius: 4px;
   padding: 10px;
   background-color: var(--input-background);
-  max-height: 250px; /* Set a max height */
+  max-height: 150px; /* Reduce max height */
   overflow-y: auto; /* Enable vertical scrollbar when needed */
   flex-grow: 0; /* Remove flex-grow */
   min-height: 50px; /* Keep a minimum height */
 }
 
-/* Reply Textarea - remove fixed height? */
-textarea#reply-output {
+/* Generated Reply Textarea (adjust if needed in main view) */
+#main-content .content-block > textarea#reply-output {
+  min-height: 100px; /* Or adjust as desired */
+  flex-grow: 1;
+  /* Match font styles from #email-content */
   font-family: "Roboto", sans-serif;
-  font-size: 0.875rem;
-  padding: 8px 12px;
-  border: 1px solid transparent; /* Remove border initially */
-  border-radius: 4px;
-  width: 100%;
-  min-height: 80px;
-  resize: vertical;
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
-    background-color 0.2s ease-in-out;
-  flex-shrink: 0;
-}
-
-textarea#reply-output:focus {
-  outline: none;
-  background-color: var(--background-color);
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color);
+  font-size: 0.8125rem; /* Match pre tag */
+  line-height: 1.4; /* Match pre tag */
+  /* Inherit other input styles like padding, border, background etc. */
 }
 
 /* Assistant Select Dropdown */
@@ -341,31 +335,13 @@ select#assistant-select:focus {
   width: 100%; /* Make button full width */
 }
 
-/* Reply Review View Specifics */
-#reply-review-view {
-  position: relative; /* For fixed positioning context */
-  padding-bottom: 74px; /* Add padding to avoid overlap (adjust if needed) */
-}
-
-#reply-review-view h2 {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: var(--primary-color);
-  margin-bottom: 8px;
-}
-
-#reply-review-view .content-block > textarea {
-  min-height: 150px; /* Adjust height for review view */
-  flex-grow: 1; /* Allow textarea to grow */
-}
-
 /* Regeneration Controls */
-.regeneration-controls {
+#regeneration-controls {
   display: flex;
   flex-direction: column;
   gap: 6px; /* Smaller gap for these controls */
-  margin-top: -4px; /* Pull up slightly to reduce space */
-  margin-bottom: 16px; /* Space before fixed buttons */
+  margin-top: 8px; /* Adjust spacing */
+  margin-bottom: 8px;
 }
 .regeneration-controls label {
   display: block;
@@ -390,20 +366,6 @@ select#assistant-select:focus {
   background-color: var(--background-color);
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px var(--primary-color);
-}
-.regeneration-controls button#regenerate-reply-btn {
-  /* Use primary button style, maybe slightly smaller? */
-  background-color: var(--primary-color);
-  color: var(--button-text-color);
-  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.2);
-  align-self: flex-start; /* Don't stretch full width */
-  padding: 6px 12px;
-  min-height: 32px;
-  font-size: 0.8125rem;
-}
-.regeneration-controls button#regenerate-reply-btn:hover {
-  background-color: var(--primary-color-dark);
-  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
 }
 
 /* Adjust button group when it's fixed */
@@ -615,4 +577,29 @@ input#assistant-search-input:focus {
   color: var(--text-color-secondary);
   min-height: 1.5em; /* Reserve space */
   display: none; /* Hide the status div */
+}
+
+/* Main Action Button Color States */
+#main-action-btn.button-generate {
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+}
+#main-action-btn.button-generate:hover {
+  background-color: var(--primary-color-dark);
+}
+
+#main-action-btn.button-regenerate {
+  background-color: var(--warning-color);
+  color: var(--text-color-primary); /* Dark text on yellow */
+}
+#main-action-btn.button-regenerate:hover {
+  background-color: var(--warning-color-dark);
+}
+
+#main-action-btn.button-insert {
+  background-color: var(--success-color);
+  color: var(--button-text-color);
+}
+#main-action-btn.button-insert:hover {
+  background-color: var(--success-color-dark);
 }
