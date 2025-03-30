@@ -3,7 +3,7 @@
   "name": "Gmail OpenAI Assistant",
   "version": "0.1.0",
   "description": "Uses OpenAI to help draft replies in Gmail via a side panel.",
-  "permissions": ["sidePanel", "scripting", "activeTab", "storage"],
+  "permissions": ["sidePanel", "scripting", "activeTab", "storage", "commands"],
   "host_permissions": ["https://mail.google.com/*", "https://api.openai.com/*"],
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -17,5 +17,14 @@
   ],
   "background": {
     "service_worker": "src/background.js"
+  },
+  "commands": {
+    "execute-quick-reply": {
+      "suggested_key": {
+        "default": "Ctrl+E",
+        "mac": "Command+E"
+      },
+      "description": "AI Quick Reply for current email"
+    }
   }
 }

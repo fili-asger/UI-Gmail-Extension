@@ -5,6 +5,12 @@ console.log("Content script loaded on Gmail.");
 let debounceTimer: number | null = null;
 const DEBOUNCE_DELAY = 500; // ms delay after DOM change before triggering extraction
 
+// --- Utility Functions ---
+/** Sleep helper function */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // --- Core Email Extraction Logic ---
 function getEmailThreadContent(): { content: string | null; error?: string } {
   try {
@@ -205,9 +211,96 @@ setTimeout(() => {
   }
 }, 2000); // Wait 2 seconds after script load
 
-// --- Message Listener for Manual Trigger & Reply Insertion ---
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+// --- Helper to click the Reply button ---
+async function openReplyField(): Promise<boolean> {
+  // Selector based on user provided HTML: span with specific classes and text 'Svar'
+  const replyButtonSelector =
+    'span.ams.bkH[role="link"]:not([aria-disabled="true"])';
+  let replyButton = document.querySelector<HTMLElement>(replyButtonSelector);
+
+  // Fallback if the simple selector doesn't work, try finding by text content
+  if (!replyButton) {
+    console.log("Reply button selector failed, trying text search...");
+    const allSpans = document.querySelectorAll('span[role="link"].ams');
+    for (const span of allSpans) {
+      if (span.textContent?.trim() === "Svar") {
+        replyButton = span as HTMLElement;
+        break;
+      }
+    }
+  }
+
+  if (replyButton) {
+    console.log("Found reply button, attempting to click.", replyButton);
+    replyButton.click();
+    await sleep(300); // Short delay for reply field to potentially open
+    return true;
+  } else {
+    console.error("Could not find the Reply button ('Svar').");
+    return false;
+  }
+}
+
+// --- Helper to check if reply field is already open ---
+function isReplyFieldOpen(): boolean {
+  const replyBoxSelector =
+    'div[aria-label="Meddelelsens tekst"][contenteditable="true"]';
+  return !!document.querySelector(replyBoxSelector);
+}
+
+// --- Message Listener ---
+chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
   console.log("Message received in content script:", message);
+
+  if (message.action === "start-quick-reply") {
+    console.log("Handling start-quick-reply request...");
+    let replyFieldWasOpened = false;
+    let success = true;
+    let errorMsg: string | undefined = undefined;
+
+    // 1. Get Email Content
+    const emailResult = getEmailThreadContent();
+    if (!emailResult.content) {
+      console.error("Failed to get email content for quick reply.");
+      success = false;
+      errorMsg = emailResult.error || "Failed to get email content";
+    }
+
+    // 2. Check/Open Reply Field (only if content extraction succeeded)
+    if (success) {
+      if (!isReplyFieldOpen()) {
+        console.log(
+          "Reply field not open, attempting to click reply button..."
+        );
+        replyFieldWasOpened = await openReplyField();
+        if (!replyFieldWasOpened) {
+          success = false;
+          errorMsg = "Could not find or click the reply button.";
+        } else {
+          // Verify it opened after clicking
+          if (!isReplyFieldOpen()) {
+            console.warn("Clicked reply, but reply field still not found!");
+            // Proceed anyway, maybe insertion will work later?
+          }
+        }
+      } else {
+        console.log("Reply field is already open.");
+      }
+    }
+
+    // 3. Send result (content + status) directly to Side Panel
+    //    The background script only initiated this.
+    console.log("Sending quick reply data to side panel");
+    chrome.runtime.sendMessage({
+      action: "execute-quick-reply-flow", // New action for side panel
+      emailContent: emailResult.content,
+      error: success ? undefined : errorMsg,
+    });
+
+    // Send simple ack back to background script
+    sendResponse({ ack: true, success: success });
+    return true; // Keep channel open briefly
+  }
 
   if (message.action === "getEmailContent") {
     // Manual trigger still uses the extraction function

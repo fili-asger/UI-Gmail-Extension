@@ -638,7 +638,7 @@ function setupEventListeners() {
   backToMainFromReviewBtn.addEventListener("click", showMainView);
   regenerateReplyBtn.addEventListener("click", handleRegenerateReply);
 
-  // Listen for proactive updates from content script
+  // Listen for proactive updates AND quick reply flow trigger
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateEmailContent") {
       console.log("Received proactive email content update:", message);
@@ -660,10 +660,77 @@ function setupEventListeners() {
         }`;
         currentEmailContent = null;
       }
-      sendResponse({ success: true }); // Acknowledge receipt
+      sendResponse({ success: true });
+      return false; // Synchronous response
     }
-    // Note: Be careful if adding more async listeners here; might need to return true.
-    // Return false or nothing for synchronous listeners or if not handling the message.
+
+    if (message.action === "execute-quick-reply-flow") {
+      console.log("Received quick reply flow trigger:", message);
+      if (message.error) {
+        console.error(
+          "Error reported by content script during quick reply start:",
+          message.error
+        );
+        alert(`Quick Reply Error: ${message.error}`);
+        showSpinner(false); // Ensure spinner is off
+        sendResponse({ success: false, error: message.error });
+        return false;
+      }
+
+      if (!message.emailContent) {
+        console.error(
+          "Quick reply flow started but no email content received."
+        );
+        alert("Quick Reply Error: Could not retrieve email content.");
+        showSpinner(false); // Ensure spinner is off
+        sendResponse({ success: false, error: "Missing email content" });
+        return false;
+      }
+
+      // Store content
+      currentEmailContent = message.emailContent;
+      emailContentPre!.textContent = currentEmailContent;
+
+      // Start the sequence: AI Select -> Generate -> Insert
+      // Use async IIFE (Immediately Invoked Function Expression) to handle the async chain
+      (async () => {
+        try {
+          console.log("Quick Reply: Starting AI Select...");
+          await handleAiSelectAssistant(); // Wait for AI select to finish
+          // Check if an assistant was actually selected
+          if (!assistantSelect.value) {
+            throw new Error("AI Select did not choose an assistant.");
+          }
+
+          console.log("Quick Reply: Starting Generate Reply...");
+          // Generate reply (initial generation, not regeneration)
+          await handleGenerateReply(false);
+
+          // Check if a reply was actually generated
+          if (!currentReply) {
+            throw new Error("Reply generation failed or produced no output.");
+          }
+
+          console.log("Quick Reply: Starting Insert Reply...");
+          await handleInsertReply(); // Insert the generated reply
+
+          console.log("Quick Reply flow completed.");
+        } catch (error) {
+          console.error("Error during Quick Reply sequence:", error);
+          // Alert is handled within the specific functions, just log here
+          showSpinner(false); // Ensure spinner is off on error
+        } finally {
+          // Spinner is turned off within handleAiSelectAssistant/handleGenerateReply
+          // No need to turn off again unless error happens before they run
+        }
+      })();
+
+      // Acknowledge the message, but the process runs async
+      sendResponse({ success: true, message: "Quick reply flow initiated" });
+      return false; // Indicate synchronous response as the main work is async
+    }
+
+    // Default for unhandled messages
     return false;
   });
 }
