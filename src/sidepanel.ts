@@ -89,6 +89,9 @@ const assistantSelectLabel = document.querySelector(
 const assistantSelect = document.getElementById(
   "assistant-select"
 ) as HTMLSelectElement;
+const aiSelectBtn = document.getElementById(
+  "ai-select-btn"
+) as HTMLButtonElement;
 const generateReplyBtn = document.getElementById(
   "generate-reply-btn"
 ) as HTMLButtonElement;
@@ -159,6 +162,7 @@ let currentThreadId: string | null = null;
 
 // --- Constants ---
 const VISIBLE_ASSISTANTS_STORAGE_KEY = "visible_assistant_ids";
+const CACHED_ASSISTANTS_KEY = "cached_all_assistants"; // New key
 
 // --- Status Updates ---
 function updateStatus(message: string, isError: boolean = false) {
@@ -195,14 +199,33 @@ function showSettingsView() {
   }
 }
 
-function showAssistantEditView() {
-  if (mainContentView && settingsView && assistantEditView && replyReviewView) {
+async function showAssistantEditView() {
+  if (mainContentView && settingsView && assistantEditView) {
     mainContentView.classList.remove("active-view");
     settingsView.classList.remove("active-view");
-    replyReviewView.classList.remove("active-view");
     assistantEditView.classList.add("active-view");
-    assistantSearchInput.value = ""; // Clear search on view show
-    populateAssistantEditList(); // Populate full list initially
+    assistantSearchInput.value = "";
+
+    assistantListContainer.innerHTML =
+      "<p>Fetching assistants from OpenAI...</p>";
+    selectAllBtn.disabled = true;
+    deselectAllBtn.disabled = true;
+
+    try {
+      await fetchAssistants(); // Fetch the latest list
+      populateAssistantEditList(); // Populate checkboxes AFTER fetch completes
+    } catch (error) {
+      console.error("Error caught in showAssistantEditView:", error);
+      // Add type check
+      let errorMsg = "Unknown error loading assistants.";
+      if (error instanceof Error) {
+        errorMsg = `Error loading assistants: ${error.message}`;
+      }
+      assistantListContainer.innerHTML = `<p style="color: red;">${errorMsg} Check API Key/connection.</p>`;
+    } finally {
+      selectAllBtn.disabled = false;
+      deselectAllBtn.disabled = false;
+    }
   }
 }
 
@@ -290,7 +313,8 @@ async function initialize() {
     !backToMainFromReviewBtn ||
     !regenInstructionsInput ||
     !regenerateReplyBtn ||
-    !globalSpinner
+    !globalSpinner ||
+    !aiSelectBtn
   ) {
     console.error(
       "One or more essential UI elements not found in sidepanel.html"
@@ -301,14 +325,14 @@ async function initialize() {
     return;
   }
 
-  // Load API key AND visible assistant IDs from storage
   try {
     const storageData = await chrome.storage.local.get([
       "openai_api_key",
-      VISIBLE_ASSISTANTS_STORAGE_KEY, // Load filter
+      VISIBLE_ASSISTANTS_STORAGE_KEY,
+      CACHED_ASSISTANTS_KEY, // Load cache
     ]);
 
-    // Load Visible Assistant IDs
+    // Load Visible IDs
     if (
       storageData[VISIBLE_ASSISTANTS_STORAGE_KEY] &&
       Array.isArray(storageData[VISIBLE_ASSISTANTS_STORAGE_KEY])
@@ -316,9 +340,21 @@ async function initialize() {
       visibleAssistantIds = storageData[VISIBLE_ASSISTANTS_STORAGE_KEY];
       console.log("Visible Assistant IDs loaded:", visibleAssistantIds);
     } else {
-      console.log("No visible assistant filter found in storage.");
-      // Default: show all initially, will be set after fetch
       visibleAssistantIds = [];
+    }
+
+    // Load Cached Assistants
+    if (
+      storageData[CACHED_ASSISTANTS_KEY] &&
+      Array.isArray(storageData[CACHED_ASSISTANTS_KEY])
+    ) {
+      allAssistants = storageData[CACHED_ASSISTANTS_KEY];
+      console.log(`Loaded ${allAssistants.length} assistants from cache.`);
+      populateAssistantDropdown(); // Populate dropdown immediately
+    } else {
+      allAssistants = [];
+      console.log("Assistant cache is empty.");
+      // Don't populate dropdown yet if cache is empty, wait for API key check
     }
 
     // Load API Key
@@ -327,23 +363,42 @@ async function initialize() {
       if (openAIApiKey !== null) {
         apiKeyInput.value = openAIApiKey;
       }
-      console.log("API Key loaded from storage.");
-      await fetchAssistants(); // Fetches all, then populates dropdown based on filter
+      console.log("API Key loaded.");
+
+      // If cache was empty but we have a key, prompt user
+      if (allAssistants.length === 0) {
+        updateStatus(
+          "No assistants cached. Please 'Edit List' to load them.",
+          true
+        );
+        populateAssistantDropdown(); // Populate with empty state
+        editAssistantsLink.style.display = "block"; // Ensure edit link is visible
+      }
       showMainView();
     } else {
-      console.log("API Key not found in storage.");
+      // Handle no API key
+      console.log("API Key not found.");
       updateStatus("Please save your OpenAI API Key in Settings.");
       assistantSelectLabel.style.display = "none";
       assistantSelect.style.display = "none";
-      editAssistantsLink.style.display = "none"; // Hide edit link too
+      editAssistantsLink.style.display = "none";
       showSettingsView();
     }
   } catch (error) {
+    // Handle storage error
     console.error("Error loading data from storage:", error);
-    updateStatus("Error loading settings.", true);
+    // Add type check for error
+    let errorMsg = "Error loading settings.";
+    if (error instanceof Error) {
+      errorMsg = `Error loading settings: ${error.message}`;
+    }
+    updateStatus(errorMsg, true);
     assistantSelectLabel.style.display = "none";
     assistantSelect.style.display = "none";
     editAssistantsLink.style.display = "none";
+    allAssistants = [];
+    visibleAssistantIds = [];
+    populateAssistantDropdown();
     showSettingsView();
   }
 
@@ -354,10 +409,9 @@ async function initialize() {
 
 /** Populates the main assistant dropdown based on the visibleAssistantIds filter */
 function populateAssistantDropdown() {
-  assistantSelect.innerHTML = ""; // Clear existing options
+  assistantSelect.innerHTML = "";
   let displayedCount = 0;
 
-  // Use allAssistants if visibleAssistantIds is empty (show all)
   const idsToShow =
     visibleAssistantIds.length > 0
       ? visibleAssistantIds
@@ -376,58 +430,38 @@ function populateAssistantDropdown() {
 
   if (displayedCount === 0) {
     if (allAssistants.length > 0) {
-      // Means filter hid everything
       assistantSelect.innerHTML =
         '<option value="">No assistants match filter</option>';
-      updateStatus(
-        "No assistants match the current filter. Edit the list.",
-        true
-      );
     } else {
-      // Means no assistants found at all
       assistantSelect.innerHTML =
-        '<option value="">No assistants found</option>';
-      updateStatus("No OpenAI assistants found in your account.", true);
+        '<option value="">No assistants available</option>';
     }
     assistantSelect.disabled = true;
-    editAssistantsLink.style.display =
-      allAssistants.length > 0 ? "block" : "none"; // Show edit link only if there are assistants
+    editAssistantsLink.style.display = openAIApiKey ? "block" : "none";
   } else {
     assistantSelect.disabled = false;
-    editAssistantsLink.style.display = "block"; // Show edit link
-    // Don't overwrite status if assistants loaded successfully
-    // updateStatus("Assistants loaded. Select one and generate reply.");
+    editAssistantsLink.style.display = "block";
   }
 }
 
 /** Fetches the full list of assistants and stores it */
 async function fetchAssistants() {
   if (!openAIApiKey) {
-    updateStatus("API Key not set, cannot fetch assistants.", true);
-    assistantSelectLabel.style.display = "none";
-    assistantSelect.style.display = "none";
-    editAssistantsLink.style.display = "none";
-    allAssistants = []; // Clear list
-    populateAssistantDropdown(); // Update dropdown (will show empty state)
-    return;
+    // Update status or alert if trying to fetch without key?
+    console.warn("Attempted to fetch assistants without API Key.");
+    throw new Error("API Key not set."); // Throw error to be caught by caller
   }
 
-  updateStatus("Fetching OpenAI Assistants...");
-  assistantSelectLabel.style.display = "block";
-  assistantSelect.style.display = "block";
-  editAssistantsLink.style.display = "none";
-  assistantSelect.innerHTML = '<option value="">Loading...</option>';
-  assistantSelect.disabled = true;
-  allAssistants = []; // Clear previous list
+  console.log("Fetching OpenAI Assistants...");
+  allAssistants = []; // Clear previous list before fetching
 
   let hasMore = true;
   let afterId: string | undefined = undefined;
 
   try {
-    // Loop to handle pagination
+    // Pagination loop
     while (hasMore) {
-      // Construct endpoint with pagination params if needed
-      let endpoint = "/assistants?limit=100"; // Fetch 100 at a time
+      let endpoint = "/assistants?limit=100";
       if (afterId) {
         endpoint += `&after=${afterId}`;
       }
@@ -440,44 +474,41 @@ async function fetchAssistants() {
       );
 
       if (response.data && response.data.length > 0) {
-        allAssistants = allAssistants.concat(response.data); // Append new assistants
+        allAssistants = allAssistants.concat(response.data);
       }
-      // Check pagination status from the response
       hasMore = response.has_more ?? false;
-      afterId = response.last_id; // Get ID for the next page query (will be undefined if no more pages)
-
-      // Stop if hasMore is false or if afterId is missing (shouldn't happen if has_more is true, but safety check)
+      afterId = response.last_id;
       if (!hasMore || !afterId) {
         hasMore = false;
       }
-
-      // Add a small delay to avoid hitting rate limits aggressively
       if (hasMore) await sleep(200);
     }
 
     console.log(`Fetched a total of ${allAssistants.length} assistants.`);
 
-    // If filter is empty after first full fetch, default to showing all
+    // Save to cache
+    await chrome.storage.local.set({ [CACHED_ASSISTANTS_KEY]: allAssistants });
+    console.log("Saved fetched assistants to cache.");
+
+    // If filter is empty after fetch (first time?), default to all visible
     if (visibleAssistantIds.length === 0 && allAssistants.length > 0) {
       visibleAssistantIds = allAssistants.map((a) => a.id);
-      // Save this default 'show all' state
       await chrome.storage.local.set({
         [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
       });
-      console.log("Defaulting filter to show all assistants.");
+      console.log("Defaulting filter to show all assistants after fetch.");
     }
 
-    populateAssistantDropdown(); // Populate dropdown based on filter
-    updateStatus("Assistants loaded.");
+    // Fetch is complete, caller (showAssistantEditView) will handle populating the edit list
   } catch (error) {
-    console.error("Error fetching assistants:", error);
-    let errorMessage = "An unknown error occurred while fetching assistants.";
+    console.error("Error during assistant fetch loop:", error);
+    let errorMessage = "Error fetching assistants.";
     if (error instanceof Error) {
       errorMessage = `Error fetching assistants: ${error.message}`;
     }
-    updateStatus(errorMessage, true);
-    allAssistants = [];
-    populateAssistantDropdown(); // Update dropdown to show error state
+    allAssistants = []; // Clear local state on error
+    // Rethrow the error so the calling function (showAssistantEditView) can handle UI state
+    throw new Error(errorMessage);
   }
 }
 
@@ -580,6 +611,7 @@ function setupEventListeners() {
   // Main View Listeners
   refreshContextLink.addEventListener("click", handleGetEmailContent);
   generateReplyBtn.addEventListener("click", () => handleGenerateReply());
+  aiSelectBtn.addEventListener("click", handleAiSelectAssistant);
   editAssistantsLink.addEventListener("click", showAssistantEditView);
 
   // Top Bar Listener
@@ -899,6 +931,116 @@ async function handleSaveApiKey() {
     }
   } else {
     alert("API Key cannot be empty."); // Use alert for now
+  }
+}
+
+/** Calls GPT-4o-mini to recommend an assistant */
+async function handleAiSelectAssistant() {
+  if (!openAIApiKey) {
+    alert("Please set your OpenAI API Key in Settings first.");
+    return;
+  }
+  if (!currentEmailContent) {
+    alert("Please get the email content first (use Refresh).");
+    return;
+  }
+  if (allAssistants.length === 0) {
+    alert("No assistants loaded. Please use 'Edit List' first.");
+    return;
+  }
+
+  showSpinner(true);
+  updateStatus("Asking AI for recommendation...", false); // Log status
+
+  // Get the list of assistants currently visible in the dropdown
+  const visibleOptions = Array.from(assistantSelect.options)
+    .filter((opt) => opt.value) // Exclude empty/placeholder options
+    .map((opt) => ({ id: opt.value, name: opt.textContent || opt.value }));
+
+  if (visibleOptions.length === 0) {
+    alert("No assistants available in the dropdown to choose from.");
+    showSpinner(false);
+    return;
+  }
+
+  // Format the available assistants list for the prompt
+  const assistantListText = visibleOptions
+    .map((a) => `- ID: ${a.id}, Name: ${a.name}`)
+    .join("\n");
+
+  // Construct the prompt
+  const prompt = `Given the following email thread content and a list of available OpenAI Assistants, please recommend the single most suitable assistant ID for generating a helpful reply.
+
+Email Thread Content:
+---
+${currentEmailContent}
+---
+
+Available Assistants:
+---
+${assistantListText}
+---
+
+Based on the email content and the likely purpose of each assistant (inferred from name/ID), which assistant ID is the best fit? Please return ONLY the ID of the recommended assistant and nothing else.`;
+
+  console.log("Sending prompt to GPT-4o-mini for recommendation...");
+
+  try {
+    // Use Chat Completions API for this task
+    const response = await fetchOpenAI<{
+      choices: { message: { content: string } }[];
+    }>("/chat/completions", openAIApiKey, {
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Use the specified model
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2, // Low temperature for more deterministic ID selection
+        max_tokens: 50, // Assistant IDs are relatively short
+      }),
+      // Override the default 'OpenAI-Beta' header if needed for chat completions
+      // fetchOpenAI already sets assistants=v2, let's override it here
+      headers: { "OpenAI-Beta": "" },
+    });
+
+    if (
+      response.choices &&
+      response.choices.length > 0 &&
+      response.choices[0].message?.content
+    ) {
+      const recommendedId = response.choices[0].message.content.trim();
+      console.log("AI recommended assistant ID:", recommendedId);
+
+      // Check if the recommended ID exists in the visible options
+      const isValidRecommendation = visibleOptions.some(
+        (opt) => opt.id === recommendedId
+      );
+
+      if (isValidRecommendation) {
+        assistantSelect.value = recommendedId; // Set the dropdown
+        updateStatus("AI recommended assistant selected.");
+      } else {
+        console.error(
+          "AI returned an invalid or non-visible assistant ID:",
+          recommendedId
+        );
+        alert(
+          "AI recommended an assistant that is not currently in your visible list."
+        );
+        updateStatus("AI recommendation was not in the visible list.", true);
+      }
+    } else {
+      throw new Error("Invalid response structure from AI recommendation.");
+    }
+  } catch (error) {
+    console.error("Error getting AI assistant recommendation:", error);
+    let errorMsg = "Could not get AI recommendation.";
+    if (error instanceof Error) {
+      errorMsg = `Error getting AI recommendation: ${error.message}`;
+    }
+    alert(errorMsg);
+    updateStatus(errorMsg, true);
+  } finally {
+    showSpinner(false);
   }
 }
 

@@ -31,10 +31,21 @@
       <!-- Assistant Selection Dropdown -->
       <div class="assistant-selector-header">
         <label for="assistant-select">Select Assistant:</label>
-        <button id="edit-assistants-link" class="link-button">Edit List</button>
+        <div>
+          <button
+            id="ai-select-btn"
+            class="small-link-button"
+            title="Get AI recommendation"
+          >
+            AI Select
+          </button>
+          <button id="edit-assistants-link" class="link-button">
+            Edit List
+          </button>
+        </div>
       </div>
       <select id="assistant-select">
-        <option value="">Loading assistants...</option>
+        <option value="">Select assistant...</option>
       </select>
 
       <!-- Email Context -->

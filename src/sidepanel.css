@@ -442,6 +442,13 @@ select#assistant-select:focus {
   margin-bottom: -8px; /* Reduce gap below header */
 }
 
+/* Style the button container in the header */
+.assistant-selector-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Space between AI Select and Edit List */
+}
+
 .assistant-selector-header label {
   margin-bottom: 0; /* Remove margin from label */
 }
