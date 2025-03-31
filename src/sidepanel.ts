@@ -372,6 +372,7 @@ function resetReplyState() {
   hideGeneratedReply(); // Hides sections, clears textarea, nullifies currentReply
   setMainActionButtonState("generate"); // Reset button
   currentThreadId = null; // Reset thread ID as the context has changed
+  instructionSelect.value = ""; // Reset instruction dropdown to default
 }
 
 // --- Initialization ---
