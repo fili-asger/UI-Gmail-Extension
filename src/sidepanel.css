@@ -755,3 +755,167 @@ input#assistant-search-input:focus {
 #main-action-btn.button-insert:hover {
   background-color: var(--success-color-dark);
 }
+
+/* Instruction Edit View Styling (reused and adapted) */
+#instruction-edit-view {
+  /* Existing styles remain */
+}
+
+/* Assistant Instruction Edit View Styling */
+#assistant-instruction-edit-view {
+  /* Use content-view styles, already applied via class change */
+  /* Remove specific display properties if they were set here previously, */
+  /* as .content-view handles display */
+}
+
+#assistant-instruction-edit-view h2 {
+  /* Inherit from other h2 styles */
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+
+#assistant-instruction-edit-view p {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 12px; /* Consistent paragraph spacing */
+  margin-top: 0; /* Reset default margin */
+}
+
+#assistant-instruction-edit-view .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* Reduced gap between label and input */
+  margin-bottom: 16px; /* Consistent spacing between form groups */
+}
+
+#assistant-instruction-edit-view label {
+  /* Inherit from other labels */
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-color-secondary);
+}
+
+#assistant-instruction-edit-view select,
+#assistant-instruction-edit-view textarea {
+  /* Inherit from general select/textarea styles */
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  width: 100%;
+  background-color: var(--input-background);
+  color: var(--text-color-primary);
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+  box-sizing: border-box;
+}
+#assistant-instruction-edit-view select:hover,
+#assistant-instruction-edit-view textarea:hover {
+  background-color: #f1f3f4;
+}
+
+#assistant-instruction-edit-view select:focus,
+#assistant-instruction-edit-view textarea:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+#assistant-instruction-edit-view select {
+  height: 38px; /* Match other selects */
+  cursor: pointer;
+}
+
+#assistant-instruction-edit-view textarea {
+  min-height: 100px; /* Provide a reasonable default height */
+  resize: vertical;
+}
+
+#assistant-instruction-edit-view .button-group {
+  /* Inherit general .button-group styles */
+  display: flex;
+  gap: 12px;
+  margin-top: auto; /* Push buttons to bottom */
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Apply primary button style (already has class) */
+#assistant-instruction-edit-view button#save-assistant-instructions-btn {
+  background-color: var(--primary-color);
+  color: var(--button-text-color);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.2);
+}
+#assistant-instruction-edit-view button#save-assistant-instructions-btn:hover {
+  background-color: var(--primary-color-dark);
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+/* Apply secondary button style (already has class) */
+#assistant-instruction-edit-view button#back-to-main-from-instructions-btn {
+  /* Uses .secondary-button class styles */
+  background-color: #e8eaed; /* Lighter grey */
+  color: var(--text-color-primary);
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.1);
+}
+#assistant-instruction-edit-view
+  button#back-to-main-from-instructions-btn:hover {
+  background-color: #dadce0; /* Darker grey */
+  box-shadow: 0 1px 3px 1px rgba(60, 64, 67, 0.1);
+}
+
+#assistant-instruction-edit-view .status-message {
+  font-size: 0.875rem;
+  margin-top: 10px;
+  min-height: 1.5em; /* Reserve space */
+  color: var(--success-color); /* Default to success */
+}
+
+#assistant-instruction-edit-view .status-message.error {
+  color: red; /* Use a standard error color */
+}
+
+/* Ensure link buttons are inline */
+.label-and-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px; /* Add some space below the label/links */
+}
+
+.link-buttons {
+  display: flex;
+  gap: 10px; /* Space between Edit List and Edit Assistant buttons */
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85em; /* Slightly smaller font */
+}
+
+#assistant-instruction-edit-view .form-group {
+  margin-bottom: 15px; /* Consistent spacing */
+}
+
+#assistant-instruction-edit-view label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+#assistant-instruction-edit-view .styled-select,
+#assistant-instruction-edit-view textarea {
+  width: 100%; /* Make sure selects and textareas take full width */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}

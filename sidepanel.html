@@ -44,6 +44,9 @@
           <button id="edit-assistants-link" class="link-button">
             Edit List
           </button>
+          <button id="edit-assistant-instructions-link" class="link-button">
+            Edit Assistant
+          </button>
         </div>
       </div>
       <select id="assistant-select">
@@ -178,6 +181,44 @@
         <button id="save-instructions-btn">Done</button>
         <!-- Simple Done button -->
       </div>
+    </div>
+
+    <!-- Assistant Instruction Edit View -->
+    <div id="assistant-instruction-edit-view" class="content-view">
+      <h2>Edit Assistant</h2>
+      <p>Editing: <strong id="editing-assistant-name">N/A</strong></p>
+
+      <!-- Model Selection -->
+      <div class="form-group">
+        <label for="assistant-model-select">Model:</label>
+        <select id="assistant-model-select"></select>
+      </div>
+
+      <!-- Instructions Textarea -->
+      <div class="form-group">
+        <label for="assistant-instructions-textarea"
+          >System Instructions:</label
+        >
+        <textarea
+          id="assistant-instructions-textarea"
+          rows="10"
+          placeholder="Enter the system instructions for this assistant..."
+        ></textarea>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="form-group button-group">
+        <button id="save-assistant-instructions-btn" class="primary-button">
+          Save Changes
+        </button>
+        <button
+          id="back-to-main-from-instructions-btn"
+          class="secondary-button"
+        >
+          Back to Main
+        </button>
+      </div>
+      <div id="instruction-edit-status" class="status-message"></div>
     </div>
 
     <!-- Global Spinner -->

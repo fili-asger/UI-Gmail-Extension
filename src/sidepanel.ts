@@ -4,7 +4,23 @@ import "./sidepanel.css"; // Import styles
 interface OpenAIAssistant {
   id: string;
   name: string | null;
+  instructions?: string | null; // Add instructions field
+  model: string; // Add model field (it's required)
   // Add other fields if needed
+}
+
+// Add Model Interfaces
+interface OpenAIModel {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+  // Add other potentially useful fields if needed
+}
+
+interface OpenAIModelListResponse {
+  object: string;
+  data: OpenAIModel[];
 }
 
 interface OpenAPIAssistantListResponse {
@@ -69,6 +85,9 @@ const mainContentView = document.getElementById(
 const settingsView = document.getElementById("settings-view") as HTMLDivElement;
 const assistantEditView = document.getElementById(
   "assistant-edit-view"
+) as HTMLDivElement;
+const assistantInstructionEditView = document.getElementById(
+  "assistant-instruction-edit-view"
 ) as HTMLDivElement;
 
 // Top Bar
@@ -177,6 +196,31 @@ const saveInstructionsBtn = document.getElementById(
   "save-instructions-btn"
 ) as HTMLButtonElement;
 
+// Assistant Instruction Edit View Elements
+const editingAssistantNameSpan = document.getElementById(
+  "editing-assistant-name"
+) as HTMLSpanElement;
+const assistantModelSelect = document.getElementById(
+  "assistant-model-select"
+) as HTMLSelectElement;
+const assistantInstructionsTextarea = document.getElementById(
+  "assistant-instructions-textarea"
+) as HTMLTextAreaElement;
+const saveAssistantInstructionsBtn = document.getElementById(
+  "save-assistant-instructions-btn"
+) as HTMLButtonElement;
+const backToMainFromInstructionsBtn = document.getElementById(
+  "back-to-main-from-instructions-btn"
+) as HTMLButtonElement;
+const instructionEditStatusDiv = document.getElementById(
+  "instruction-edit-status"
+) as HTMLDivElement;
+
+// New elements
+const editAssistantInstructionsLink = document.getElementById(
+  "edit-assistant-instructions-link"
+) as HTMLButtonElement;
+
 // State Variables
 let currentEmailContent: string | null = null;
 let currentReply: string | null = null;
@@ -186,6 +230,7 @@ let visibleAssistantIds: string[] = []; // IDs to show in the dropdown
 let currentThreadId: string | null = null;
 let currentActionButtonState: "generate" | "insert" | "regenerate" = "generate"; // Track button state
 let savedInstructions: string[] = ["Accept", "Reject", "Negotiate"]; // Default/example instructions
+let currentEditingAssistantId: string | null = null;
 
 // --- Constants ---
 const VISIBLE_ASSISTANTS_STORAGE_KEY = "visible_assistant_ids";
@@ -204,19 +249,39 @@ function updateStatus(message: string, isError: boolean = false) {
   console.log(`Status Update (${isError ? "ERROR" : "INFO"}): ${message}`);
 }
 
+function updateAssistantInstructionEditStatus(
+  message: string,
+  isError: boolean = false
+) {
+  if (instructionEditStatusDiv) {
+    instructionEditStatusDiv.textContent = message;
+    instructionEditStatusDiv.className = `status-message ${
+      isError ? "error" : ""
+    }`;
+  }
+  console.log(
+    `Assistant Instruction Edit Status (${
+      isError ? "ERROR" : "INFO"
+    }): ${message}`
+  );
+}
+
 // --- View Management ---
 function showMainView() {
   if (
     mainContentView &&
     settingsView &&
     assistantEditView &&
-    instructionEditView
+    instructionEditView &&
+    assistantInstructionEditView
   ) {
     settingsView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
     instructionEditView.classList.remove("active-view");
+    assistantInstructionEditView.classList.remove("active-view");
     mainContentView.classList.add("active-view");
     hideGeneratedReply();
+    currentEditingAssistantId = null;
   }
 }
 
@@ -225,11 +290,13 @@ function showSettingsView() {
     mainContentView &&
     settingsView &&
     assistantEditView &&
-    instructionEditView
+    instructionEditView &&
+    assistantInstructionEditView
   ) {
     mainContentView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
     instructionEditView.classList.remove("active-view");
+    assistantInstructionEditView.classList.remove("active-view");
     settingsView.classList.add("active-view");
     hideGeneratedReply();
     if (openAIApiKey !== null) {
@@ -243,11 +310,13 @@ async function showAssistantEditView() {
     mainContentView &&
     settingsView &&
     assistantEditView &&
-    instructionEditView
+    instructionEditView &&
+    assistantInstructionEditView
   ) {
     mainContentView.classList.remove("active-view");
     settingsView.classList.remove("active-view");
     instructionEditView.classList.remove("active-view");
+    assistantInstructionEditView.classList.remove("active-view");
     assistantEditView.classList.add("active-view");
     hideGeneratedReply();
     assistantSearchInput.value = "";
@@ -260,14 +329,134 @@ function showInstructionEditView() {
     mainContentView &&
     settingsView &&
     assistantEditView &&
-    instructionEditView
+    instructionEditView &&
+    assistantInstructionEditView
   ) {
     mainContentView.classList.remove("active-view");
     settingsView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
+    assistantInstructionEditView.classList.remove("active-view");
     instructionEditView.classList.add("active-view");
     newInstructionInput.value = "";
     populateInstructionEditList();
+  }
+}
+
+async function showAssistantInstructionEditView() {
+  const selectedAssistantId = assistantSelect.value;
+  if (!selectedAssistantId) {
+    alert("Please select an assistant from the dropdown first.");
+    return;
+  }
+  if (!openAIApiKey) {
+    alert("API Key not set. Please configure it in Settings.");
+    return;
+  }
+
+  if (
+    mainContentView &&
+    settingsView &&
+    assistantEditView &&
+    instructionEditView &&
+    assistantInstructionEditView
+  ) {
+    mainContentView.classList.remove("active-view");
+    settingsView.classList.remove("active-view");
+    assistantEditView.classList.remove("active-view");
+    instructionEditView.classList.remove("active-view");
+
+    assistantInstructionEditView.classList.add("active-view");
+    showSpinner(true);
+    updateAssistantInstructionEditStatus(
+      "Fetching details and models...",
+      false
+    );
+    assistantInstructionsTextarea.value = "";
+    editingAssistantNameSpan.textContent = "Loading...";
+    assistantModelSelect.innerHTML = ""; // Clear previous models
+    assistantModelSelect.disabled = false; // Re-enable in case it was disabled by previous error
+    assistantInstructionsTextarea.disabled = false;
+    saveAssistantInstructionsBtn.disabled = true; // Disable save until loaded
+    currentEditingAssistantId = selectedAssistantId;
+
+    try {
+      // Fetch assistant details and available models concurrently
+      const [assistant, availableModels] = await Promise.all([
+        fetchOpenAI<OpenAIAssistant>(
+          `/assistants/${selectedAssistantId}`,
+          openAIApiKey,
+          { method: "GET" }
+        ),
+        fetchAvailableModels(openAIApiKey), // Use the new function
+      ]);
+
+      console.log("Fetched assistant details:", assistant);
+      console.log("Fetched available models:", availableModels);
+
+      // Populate Model Dropdown
+      availableModels
+        .sort((a, b) => a.id.localeCompare(b.id)) // Sort models alphabetically
+        .forEach((model) => {
+          const option = document.createElement("option");
+          option.value = model.id;
+          option.textContent = model.id; // Display model ID
+          assistantModelSelect.appendChild(option);
+        });
+
+      // Set assistant details
+      editingAssistantNameSpan.textContent =
+        assistant.name || `ID: ${assistant.id.substring(0, 6)}...`;
+      assistantInstructionsTextarea.value = assistant.instructions || "";
+
+      // Set the selected model, adding it if it's not in the fetched list
+      const currentModelExists = availableModels.some(
+        (m) => m.id === assistant.model
+      );
+      if (!currentModelExists && assistant.model) {
+        // Check assistant.model exists
+        console.warn(
+          `Assistant model '${assistant.model}' is not in the fetched list. Adding it.`
+        );
+        const option = document.createElement("option");
+        option.value = assistant.model;
+        option.textContent = `${assistant.model} (Current)`;
+        assistantModelSelect.prepend(option); // Add it to the top
+      } else if (!assistant.model) {
+        console.warn("Assistant does not have a model specified.");
+        // Optionally add a placeholder or disable selection
+        assistantModelSelect.prepend(
+          new Option("No model assigned", "", true, true)
+        );
+        assistantModelSelect.value = "";
+      }
+
+      // Only set value if assistant.model is not null/undefined
+      if (assistant.model) {
+        assistantModelSelect.value = assistant.model; // Select the current model
+      }
+
+      updateAssistantInstructionEditStatus("Details and models loaded.", false);
+    } catch (error) {
+      console.error("Error fetching assistant details or models:", error);
+      let errorMsg = "Failed to load assistant details or models.";
+      if (error instanceof Error) {
+        errorMsg = `Error: ${error.message}`;
+      }
+      updateAssistantInstructionEditStatus(errorMsg, true);
+      editingAssistantNameSpan.textContent = "Error";
+      // Disable fields on error
+      assistantModelSelect.innerHTML =
+        '<option value="">Error loading models</option>';
+      assistantModelSelect.disabled = true;
+      assistantInstructionsTextarea.disabled = true;
+      saveAssistantInstructionsBtn.disabled = true;
+    } finally {
+      showSpinner(false);
+      // Re-enable save button only if loading was successful
+      if (!assistantModelSelect.disabled) {
+        saveAssistantInstructionsBtn.disabled = false;
+      }
+    }
   }
 }
 
@@ -360,6 +549,29 @@ async function fetchOpenAI<T>(
   return response.json() as Promise<T>;
 }
 
+/** Fetches the list of available models from OpenAI */
+async function fetchAvailableModels(apiKey: string): Promise<OpenAIModel[]> {
+  console.log("Fetching available OpenAI models...");
+  try {
+    const response = await fetchOpenAI<OpenAIModelListResponse>(
+      "/models",
+      apiKey,
+      { method: "GET" }
+    );
+    // Optionally filter models here if needed (e.g., only show GPT models)
+    // For now, return all models
+    console.log(`Fetched ${response.data.length} models.`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching OpenAI models:", error);
+    throw new Error(
+      `Failed to fetch models: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
 /** Sleep helper function */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -411,7 +623,14 @@ async function initialize() {
     !newInstructionInput ||
     !addInstructionBtn ||
     !instructionListContainer ||
-    !saveInstructionsBtn
+    !saveInstructionsBtn ||
+    !assistantInstructionEditView ||
+    !editAssistantInstructionsLink ||
+    !editingAssistantNameSpan ||
+    !assistantInstructionsTextarea ||
+    !saveAssistantInstructionsBtn ||
+    !backToMainFromInstructionsBtn ||
+    !instructionEditStatusDiv
   ) {
     console.error(
       "One or more essential UI elements not found in sidepanel.html"
@@ -805,6 +1024,10 @@ function setupEventListeners() {
   aiSelectBtn.addEventListener("click", handleAiSelectAssistant);
   editAssistantsLink.addEventListener("click", showAssistantEditView);
   editInstructionsLink.addEventListener("click", showInstructionEditView);
+  editAssistantInstructionsLink.addEventListener(
+    "click",
+    showAssistantInstructionEditView
+  );
   regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
   regenInstructionsInput.addEventListener("input", handleRegenInstructionInput);
   // Reset reply if assistant/instruction changed after generation
@@ -852,6 +1075,13 @@ function setupEventListeners() {
       addInstruction();
     }
   });
+
+  // Assistant Instruction Edit View Listeners
+  saveAssistantInstructionsBtn.addEventListener(
+    "click",
+    handleSaveAssistantInstructions
+  );
+  backToMainFromInstructionsBtn.addEventListener("click", showMainView);
 
   // Listen for proactive updates AND quick reply flow trigger
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -1354,6 +1584,81 @@ function handleMainActionClick() {
     case "insert":
       handleInsertReply();
       break;
+  }
+}
+
+// --- Assistant Instruction Save Handler ---
+async function handleSaveAssistantInstructions() {
+  if (!currentEditingAssistantId) {
+    alert("Error: No assistant ID found to update.");
+    return;
+  }
+  if (!openAIApiKey) {
+    alert("API Key not set.");
+    return;
+  }
+
+  const newInstructions = assistantInstructionsTextarea.value;
+  const selectedModel = assistantModelSelect.value;
+
+  if (!selectedModel) {
+    alert("Error: Please select a model.");
+    return;
+  }
+
+  console.log(`Saving changes for assistant ${currentEditingAssistantId}`);
+  showSpinner(true);
+  saveAssistantInstructionsBtn.disabled = true;
+  updateAssistantInstructionEditStatus("Saving changes...", false);
+
+  const payload = {
+    instructions: newInstructions,
+    model: selectedModel,
+  };
+
+  console.log("Sending update payload:", JSON.stringify(payload, null, 2)); // Log the exact payload
+
+  try {
+    const updatedAssistant = await fetchOpenAI<OpenAIAssistant>(
+      `/assistants/${currentEditingAssistantId}`,
+      openAIApiKey,
+      {
+        method: "POST",
+        body: JSON.stringify(payload), // Send the logged payload
+      }
+    );
+
+    console.log("Assistant updated successfully:", updatedAssistant);
+    updateAssistantInstructionEditStatus("Changes saved successfully!", false);
+
+    const index = allAssistants.findIndex(
+      (a) => a.id === currentEditingAssistantId
+    );
+    if (index !== -1) {
+      allAssistants[index].instructions = newInstructions;
+      allAssistants[index].model = selectedModel;
+      await chrome.storage.local.set({
+        [CACHED_ASSISTANTS_KEY]: allAssistants,
+      });
+    }
+
+    setTimeout(() => {
+      showMainView();
+    }, 1500);
+  } catch (error) {
+    console.error("Error saving assistant changes:", error);
+    let errorMsg = "Failed to save changes.";
+    if (error instanceof Error) {
+      errorMsg = `Error saving changes: ${error.message}`;
+    }
+    updateAssistantInstructionEditStatus(errorMsg, true);
+    saveAssistantInstructionsBtn.disabled = false;
+  } finally {
+    showSpinner(false);
+    if (!instructionEditStatusDiv.classList.contains("error")) {
+    } else {
+      saveAssistantInstructionsBtn.disabled = false;
+    }
   }
 }
 
