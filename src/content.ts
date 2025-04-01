@@ -211,32 +211,80 @@ setTimeout(() => {
   }
 }, 2000); // Wait 2 seconds after script load
 
-// --- Helper to click the Reply button ---
+// --- Helper to click the Reply or Reply All button ---
 async function openReplyField(): Promise<boolean> {
-  // Selector based on user provided HTML: span with specific classes and text 'Svar'
-  const replyButtonSelector =
-    'span.ams.bkH[role="link"]:not([aria-disabled="true"])';
-  let replyButton = document.querySelector<HTMLElement>(replyButtonSelector);
+  // --- Try 'Reply all' first ---
+  const replyAllSelector = 'span.ams.bkI[role="link"]'; // Selector for Reply All button container
+  let replyAllButton: HTMLElement | null = null;
+  const allReplyAllCandidates =
+    document.querySelectorAll<HTMLElement>(replyAllSelector);
+  for (const span of allReplyAllCandidates) {
+    // Check the text content robustly, trim whitespace
+    if (span.textContent?.trim().toLowerCase() === "reply all") {
+      replyAllButton = span;
+      break;
+    }
+  }
 
-  // Fallback if the simple selector doesn't work, try finding by text content
+  if (replyAllButton && !replyAllButton.ariaDisabled) {
+    console.log(
+      "Found 'Reply all' button, attempting to click.",
+      replyAllButton
+    );
+    replyAllButton.click();
+    await sleep(500); // Wait longer for Reply All UI changes
+    return true;
+  }
+
+  // --- If 'Reply all' not found or not clickable, try 'Reply' ---
+  console.log("'Reply all' not found or clickable, trying 'Reply' button...");
+  // Original selector was 'span.ams.bkH[role="link"]', might need adjustment for English UI
+  const replyButtonSelector = 'span.ams.bkH[role="link"]';
+  let replyButton: HTMLElement | null = null;
+  const allReplyCandidates =
+    document.querySelectorAll<HTMLElement>(replyButtonSelector);
+  for (const span of allReplyCandidates) {
+    if (span.textContent?.trim().toLowerCase() === "reply") {
+      // Changed "Svar" to "Reply"
+      replyButton = span;
+      break;
+    }
+  }
+
+  // Fallback if the specific selector doesn't work, find any link/button with text "Reply"
   if (!replyButton) {
-    console.log("Reply button selector failed, trying text search...");
-    const allSpans = document.querySelectorAll('span[role="link"].ams');
-    for (const span of allSpans) {
-      if (span.textContent?.trim() === "Svar") {
-        replyButton = span as HTMLElement;
-        break;
+    console.log(
+      "Reply button selector failed, trying broader text search for 'Reply'..."
+    );
+    const allLinks = document.querySelectorAll<HTMLElement>(
+      '[role="link"], [role="button"]'
+    );
+    for (const el of allLinks) {
+      if (
+        el.textContent?.trim().toLowerCase() === "reply" &&
+        !el.closest(".gmail_signature")
+      ) {
+        // Avoid signature links
+        // Basic check if it's likely a main action button (visible, reasonable size)
+        if (
+          el.offsetParent !== null &&
+          el.offsetHeight > 5 &&
+          el.offsetWidth > 5
+        ) {
+          replyButton = el;
+          break;
+        }
       }
     }
   }
 
-  if (replyButton) {
-    console.log("Found reply button, attempting to click.", replyButton);
+  if (replyButton && !replyButton.ariaDisabled) {
+    console.log("Found 'Reply' button, attempting to click.", replyButton);
     replyButton.click();
     await sleep(300); // Short delay for reply field to potentially open
     return true;
   } else {
-    console.error("Could not find the Reply button ('Svar').");
+    console.error("Could not find a clickable 'Reply all' or 'Reply' button.");
     return false;
   }
 }
@@ -244,8 +292,12 @@ async function openReplyField(): Promise<boolean> {
 // --- Helper to check if reply field is already open ---
 function isReplyFieldOpen(): boolean {
   const replyBoxSelector =
-    'div[aria-label="Meddelelsens tekst"][contenteditable="true"]';
-  return !!document.querySelector(replyBoxSelector);
+    'div[aria-label="Message Body"][contenteditable="true"]'; // Updated selector
+  const fallbackSelector = 'div[g_editable="true"][role="textbox"]';
+  return !!(
+    document.querySelector(replyBoxSelector) ||
+    document.querySelector(fallbackSelector)
+  );
 }
 
 // --- Message Listener ---
@@ -313,51 +365,55 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
   if (message.action === "insertReply") {
     console.log("Attempting to insert reply:", message.replyText);
 
-    // 1. Check if reply field is open, try to open if not
+    // 1. Check if reply field is open, try to open if not (will now try Reply All first)
     if (!isReplyFieldOpen()) {
-      console.log("Reply field not open for insert, attempting to open...");
+      // isReplyFieldOpen might need selector update too
+      console.log(
+        "Reply field not open for insert, attempting to open (Reply All priority)..."
+      );
       const opened = await openReplyField();
       if (!opened) {
-        console.error("Failed to open reply field before inserting.");
+        console.error("Failed to open reply/reply-all field before inserting.");
         sendResponse({ success: false, error: "Could not open reply field." });
         return true; // Indicate async response handled
       }
       // Add a small delay after opening seems necessary sometimes
-      await sleep(200);
+      await sleep(300);
     }
 
     // 2. Try to find the reply field and insert
+    // Update selector for English UI
     const primarySelector =
-      'div[aria-label="Meddelelsens tekst"][contenteditable="true"]';
-    const replyBox = document.querySelector(primarySelector);
+      'div[aria-label="Message Body"][contenteditable="true"]'; // Changed from "Meddelelsens tekst"
+    let replyBox = document.querySelector(primarySelector);
+
+    // Add fallback selectors if primary fails
+    if (!replyBox) {
+      const fallbackSelectors = [
+        'div[aria-label*="Message body"][contenteditable="true"]', // Case variation
+        'div[g_editable="true"][role="textbox"]', // More generic Gmail selector
+      ];
+      for (const selector of fallbackSelectors) {
+        console.log(`Primary selector failed, trying fallback: ${selector}`);
+        replyBox = document.querySelector(selector);
+        if (replyBox) break; // Stop if found
+      }
+    }
 
     if (replyBox instanceof HTMLElement) {
       replyBox.focus();
+      // Use innerText for simple text, or consider innerHTML if formatting needed
       replyBox.innerText = message.replyText;
-      console.log("Reply inserted using primary selector.");
+      console.log("Reply inserted into text area.");
       sendResponse({ success: true });
     } else {
-      const fallbackSelector =
-        'div[aria-label*="Message"][contenteditable="true"]';
-      console.log(
-        `Primary selector ('${primarySelector}') failed, trying fallback ('${fallbackSelector}').`
+      console.error(
+        "Could not find Gmail reply box using primary or fallback selectors after attempting to open."
       );
-      const fallbackReplyBox = document.querySelector(fallbackSelector);
-
-      if (fallbackReplyBox instanceof HTMLElement) {
-        fallbackReplyBox.focus();
-        fallbackReplyBox.innerText = message.replyText;
-        console.log("Reply inserted using fallback selector.");
-        sendResponse({ success: true });
-      } else {
-        console.error(
-          "Could not find Gmail reply box using primary or fallback selectors after attempting to open."
-        );
-        sendResponse({
-          success: false,
-          error: "Reply box not found after attempt",
-        });
-      }
+      sendResponse({
+        success: false,
+        error: "Reply box not found after attempt",
+      });
     }
     return true; // Keep message channel open
   }
