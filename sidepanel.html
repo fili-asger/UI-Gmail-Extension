@@ -56,14 +56,25 @@
       <!-- Instruction Selection Dropdown -->
       <div class="instruction-selector-header">
         <label for="instruction-select">Select Instruction:</label>
-        <button id="edit-instructions-link" class="link-button">
-          Edit List
-        </button>
+        <div>
+          <button id="edit-instructions-link" class="link-button">
+            Edit List
+          </button>
+          <button id="toggle-custom-instruction" class="link-button">
+            Custom
+          </button>
+        </div>
       </div>
       <select id="instruction-select">
         <option value="">No Instruction Selected</option>
         <!-- Instructions loaded here -->
       </select>
+      <textarea
+        id="custom-instruction-input"
+        placeholder="Enter custom instruction..."
+        style="display: none; width: 100%; margin-top: 5px"
+        rows="3"
+      ></textarea>
 
       <!-- Email Context -->
       <div class="content-block">

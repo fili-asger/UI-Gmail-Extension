@@ -221,6 +221,14 @@ const editAssistantInstructionsLink = document.getElementById(
   "edit-assistant-instructions-link"
 ) as HTMLButtonElement;
 
+// Add new element references
+const customInstructionInput = document.getElementById(
+  "custom-instruction-input"
+) as HTMLTextAreaElement;
+const toggleCustomInstructionButton = document.getElementById(
+  "toggle-custom-instruction"
+) as HTMLButtonElement;
+
 // State Variables
 let currentEmailContent: string | null = null;
 let currentReply: string | null = null;
@@ -630,7 +638,9 @@ async function initialize() {
     !assistantInstructionsTextarea ||
     !saveAssistantInstructionsBtn ||
     !backToMainFromInstructionsBtn ||
-    !instructionEditStatusDiv
+    !instructionEditStatusDiv ||
+    !customInstructionInput ||
+    !toggleCustomInstructionButton
   ) {
     console.error(
       "One or more essential UI elements not found in sidepanel.html"
@@ -1020,7 +1030,7 @@ async function saveInstructionsToStorage() {
 function setupEventListeners() {
   // Main View Listeners
   refreshContextLink.addEventListener("click", handleGetEmailContent);
-  mainActionBtn.addEventListener("click", handleMainActionClick);
+  mainActionBtn.addEventListener("click", handleMainActionButtonClick);
   aiSelectBtn.addEventListener("click", handleAiSelectAssistant);
   editAssistantsLink.addEventListener("click", showAssistantEditView);
   editInstructionsLink.addEventListener("click", showInstructionEditView);
@@ -1149,7 +1159,8 @@ function setupEventListeners() {
 
           console.log("Quick Reply: Starting Generate Reply...");
           // Generate reply (initial generation, not regeneration)
-          await handleGenerateReply(false);
+          // Pass null for the instruction parameter as quick reply doesn't use UI instructions
+          await handleGenerateReply(false, null);
 
           // Check if a reply was actually generated
           if (!currentReply) {
@@ -1177,6 +1188,34 @@ function setupEventListeners() {
     // Default for unhandled messages
     return false;
   });
+
+  // Add listener for the new custom instruction toggle button
+  if (
+    toggleCustomInstructionButton &&
+    instructionSelect &&
+    customInstructionInput
+  ) {
+    // Fix the placeholder typo from the previous HTML edit
+    customInstructionInput.placeholder = "Enter custom instruction...";
+
+    toggleCustomInstructionButton.addEventListener("click", () => {
+      const isDropdownVisible = instructionSelect.style.display !== "none";
+      if (isDropdownVisible) {
+        // Switch to custom input
+        instructionSelect.style.display = "none";
+        customInstructionInput.style.display = "block";
+        customInstructionInput.focus();
+        toggleCustomInstructionButton.textContent = "Select"; // Change button text
+      } else {
+        // Switch back to dropdown
+        instructionSelect.style.display = ""; // Reset to default display (likely block or inline-block)
+        customInstructionInput.style.display = "none";
+        toggleCustomInstructionButton.textContent = "Custom"; // Change button text back
+      }
+    });
+  } else {
+    console.error("Custom instruction toggle elements not found!");
+  }
 }
 
 // --- Action Handlers ---
@@ -1215,10 +1254,13 @@ async function handleGetEmailContent() {
 }
 
 // --- V2 ASSISTANTS API FLOW ---
-async function handleGenerateReply(isRegeneration: boolean = false) {
+async function handleGenerateReply(
+  isRegeneration: boolean = false,
+  instruction: string | null // Accept instruction as parameter
+) {
   const selectedAssistantId = assistantSelect.value;
-  const selectedInstruction = instructionSelect.value;
-  const instructions = regenInstructionsInput.value.trim();
+
+  const regenerationInstructions = regenInstructionsInput.value.trim();
 
   if (!isRegeneration && !currentEmailContent) {
     updateStatus("Please get the email content first.", true);
@@ -1257,8 +1299,8 @@ async function handleGenerateReply(isRegeneration: boolean = false) {
       if (!threadIdToUse)
         throw new Error("Cannot regenerate without thread ID.");
       console.log("Using existing thread for regeneration:", threadIdToUse);
-      const userMessage = instructions
-        ? `Regenerate the previous reply with the following instructions: ${instructions}`
+      const userMessage = regenerationInstructions
+        ? `Regenerate the previous reply with the following instructions: ${regenerationInstructions}`
         : "Please regenerate the previous reply.";
       await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
         method: "POST",
@@ -1281,13 +1323,13 @@ async function handleGenerateReply(isRegeneration: boolean = false) {
       console.log("Added original email content message.");
     }
 
-    if (selectedInstruction) {
-      console.log("Adding selected instruction message:", selectedInstruction);
+    if (instruction) {
+      console.log("Adding selected/custom instruction message:", instruction);
       await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
         method: "POST",
         body: JSON.stringify({
           role: "user",
-          content: `Apply the following instruction: ${selectedInstruction}`,
+          content: `Apply the following instruction: ${instruction}`,
         }),
       });
     }
@@ -1575,15 +1617,44 @@ Based on the email content and the likely purpose of each assistant (inferred fr
   }
 }
 
-function handleMainActionClick() {
+async function handleMainActionButtonClick() {
+  console.log(
+    `Main action button clicked. Current state: ${currentActionButtonState}`
+  );
+
+  // Determine the instruction to use *before* deciding the action
+  let instructionToSend: string | null = null;
+  if (customInstructionInput.style.display !== "none") {
+    // Custom input is visible
+    instructionToSend = customInstructionInput.value.trim();
+    console.log("Using custom instruction:", instructionToSend);
+  } else {
+    // Dropdown is visible
+    instructionToSend = instructionSelect.value;
+    console.log("Using selected instruction:", instructionToSend);
+  }
+  // Ensure empty strings/values are treated as null
+  if (!instructionToSend) {
+    instructionToSend = null;
+  }
+
   switch (currentActionButtonState) {
     case "generate":
     case "regenerate":
-      handleGenerateReply(currentActionButtonState === "regenerate");
+      // Pass the determined instruction to handleGenerateReply
+      await handleGenerateReply(
+        currentActionButtonState === "regenerate",
+        instructionToSend
+      );
       break;
     case "insert":
-      handleInsertReply();
+      await handleInsertReply();
       break;
+    default:
+      console.error(
+        "Unknown main action button state:",
+        currentActionButtonState
+      );
   }
 }
 
