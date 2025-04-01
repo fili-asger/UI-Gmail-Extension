@@ -1,7 +1,13 @@
 // Background service worker logic will go here
 console.log("Background service worker loaded.");
 
-// Listen for the command
+// --- Configure side panel to open on icon click ---
+// This is the preferred way instead of using action.onClicked
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((error) => console.error("Error setting panel behavior:", error));
+
+// --- Listener for the keyboard command ---
 chrome.commands.onCommand.addListener(async (command, tab) => {
   console.log(`Command received: ${command}`);
 
