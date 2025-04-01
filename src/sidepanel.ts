@@ -23,15 +23,6 @@ interface OpenAIModelListResponse {
   data: OpenAIModel[];
 }
 
-interface OpenAPIAssistantListResponse {
-  object: string;
-  data: OpenAIAssistant[];
-  // Add pagination fields
-  first_id?: string;
-  last_id?: string;
-  has_more?: boolean;
-}
-
 interface OpenAPIMessageContentText {
   type: "text";
   text: {
@@ -294,26 +285,48 @@ function showMainView() {
 }
 
 function showSettingsView() {
+  console.log("[View] showSettingsView() called.");
   if (
     mainContentView &&
     settingsView &&
     assistantEditView &&
     instructionEditView &&
-    assistantInstructionEditView
+    assistantInstructionEditView &&
+    backBtn && // Make sure backBtn exists
+    apiKeyInput // Make sure apiKeyInput exists
   ) {
+    console.log(
+      "[View] SettingsView - Removing active class from other views..."
+    );
     mainContentView.classList.remove("active-view");
     assistantEditView.classList.remove("active-view");
     instructionEditView.classList.remove("active-view");
     assistantInstructionEditView.classList.remove("active-view");
+    console.log(
+      "[View] SettingsView - Adding active class to settings view..."
+    );
     settingsView.classList.add("active-view");
     hideGeneratedReply();
-    if (openAIApiKey !== null) {
+
+    // Conditionally show/hide Back button and update input
+    if (openAIApiKey) {
       apiKeyInput.value = openAIApiKey;
+      console.log("[View] SettingsView - API key exists, showing Back button.");
+      backBtn.style.display = ""; // Reset to default (should be visible)
+    } else {
+      apiKeyInput.value = "";
+      console.log("[View] SettingsView - No API key, hiding Back button.");
+      backBtn.style.display = "none"; // Hide the Back button
     }
+  } else {
+    console.error(
+      "[View] showSettingsView() - One or more view elements (including backBtn/apiKeyInput) missing!"
+    );
   }
 }
 
 async function showAssistantEditView() {
+  console.log("[View] showAssistantEditView() called."); // Log entry
   if (
     mainContentView &&
     settingsView &&
@@ -328,7 +341,56 @@ async function showAssistantEditView() {
     assistantEditView.classList.add("active-view");
     hideGeneratedReply();
     assistantSearchInput.value = "";
-    populateAssistantEditList();
+
+    // Check if assistants are loaded, if not, fetch them
+    if (!openAIApiKey) {
+      console.error(
+        "[View] showAssistantEditView - No API key available to fetch assistants."
+      );
+      assistantListContainer.innerHTML =
+        '<p class="error-message">API Key not set. Please configure it in Settings.</p>';
+      return;
+    }
+
+    // If the list is empty, try fetching from API
+    if (allAssistants.length === 0) {
+      console.log(
+        "[View] showAssistantEditView - Assistant list is empty, attempting to fetch..."
+      );
+      assistantListContainer.innerHTML =
+        "<p>Loading assistants from OpenAI...</p>"; // Show loading message
+      showSpinner(true);
+      try {
+        // Directly call the fetching logic here (assuming fetchAllAssistantsFromAPI exists)
+        // This function should handle fetching *and* updating the allAssistants array
+        await fetchAllAssistantsFromAPI(openAIApiKey);
+        console.log("[View] showAssistantEditView - Fetch completed.");
+        // If fetch succeeded, populate the list. If it failed, the catch block will handle status.
+        populateAssistantEditList();
+      } catch (error) {
+        console.error(
+          "[View] showAssistantEditView - Error fetching assistants:",
+          error
+        );
+        let errorMsg = "Failed to load assistants from OpenAI.";
+        if (error instanceof Error) {
+          errorMsg = `Error: ${error.message}`;
+        }
+        assistantListContainer.innerHTML = `<p class="error-message">${errorMsg}</p>`;
+      } finally {
+        showSpinner(false);
+      }
+    } else {
+      // If assistants are already loaded (from cache/previous fetch), just populate
+      console.log(
+        "[View] showAssistantEditView - Assistants already loaded, populating list."
+      );
+      populateAssistantEditList();
+    }
+  } else {
+    console.error(
+      "[View] showAssistantEditView() - One or more view elements missing!"
+    );
   }
 }
 
@@ -597,66 +659,68 @@ function resetReplyState() {
 
 // --- Initialization ---
 async function initialize() {
-  // Check for all essential elements including new ones
-  if (
-    !mainContentView ||
-    !settingsView ||
-    !assistantEditView ||
-    !globalSpinner ||
-    !settingsBtn ||
-    !refreshContextLink ||
-    !assistantSelectLabel ||
-    !assistantSelect ||
-    !aiSelectBtn ||
-    !emailContentPre ||
-    !generatedReplySection ||
-    !regenerateLinkBtn ||
-    !replyOutputTextarea ||
-    !regenerationControls ||
-    !regenInstructionsInput ||
-    !mainActionBtn ||
-    !mainActionBtnSpan ||
-    !apiKeyInput ||
-    !saveKeyBtn ||
-    !backBtn ||
-    !assistantSearchInput ||
-    !selectAllBtn ||
-    !deselectAllBtn ||
-    !assistantListContainer ||
-    !saveAssistantFilterBtn ||
-    !cancelAssistantFilterBtn ||
-    !editAssistantsLink ||
-    !instructionSelect ||
-    !instructionEditView ||
-    !newInstructionInput ||
-    !addInstructionBtn ||
-    !instructionListContainer ||
-    !saveInstructionsBtn ||
-    !assistantInstructionEditView ||
-    !editAssistantInstructionsLink ||
-    !editingAssistantNameSpan ||
-    !assistantInstructionsTextarea ||
-    !saveAssistantInstructionsBtn ||
-    !backToMainFromInstructionsBtn ||
-    !instructionEditStatusDiv ||
-    !customInstructionInput ||
-    !toggleCustomInstructionButton
-  ) {
-    console.error(
-      "One or more essential UI elements not found in sidepanel.html"
-    );
-    // Attempt to show an error message in the body if possible
-    document.body.innerHTML =
-      "Error: Side panel UI elements missing or structure incorrect.";
-    return;
-  }
-
+  console.log("[Init] Initializing side panel...");
+  showSpinner(true);
   try {
+    // Check for all essential elements
+    if (
+      !mainContentView ||
+      !settingsView ||
+      !assistantEditView ||
+      !globalSpinner ||
+      !settingsBtn ||
+      !refreshContextLink ||
+      !assistantSelectLabel ||
+      !assistantSelect ||
+      !aiSelectBtn ||
+      !emailContentPre ||
+      !generatedReplySection ||
+      !regenerateLinkBtn ||
+      !replyOutputTextarea ||
+      !regenerationControls ||
+      !regenInstructionsInput ||
+      !mainActionBtn ||
+      !mainActionBtnSpan ||
+      !apiKeyInput ||
+      !saveKeyBtn ||
+      !backBtn ||
+      !assistantSearchInput ||
+      !selectAllBtn ||
+      !deselectAllBtn ||
+      !assistantListContainer ||
+      !saveAssistantFilterBtn ||
+      !cancelAssistantFilterBtn ||
+      !editAssistantsLink ||
+      !instructionSelect ||
+      !instructionEditView ||
+      !newInstructionInput ||
+      !addInstructionBtn ||
+      !instructionListContainer ||
+      !saveInstructionsBtn ||
+      !assistantInstructionEditView ||
+      !editAssistantInstructionsLink ||
+      !editingAssistantNameSpan ||
+      !assistantInstructionsTextarea ||
+      !saveAssistantInstructionsBtn ||
+      !backToMainFromInstructionsBtn ||
+      !instructionEditStatusDiv ||
+      !customInstructionInput ||
+      !toggleCustomInstructionButton
+    ) {
+      console.error(
+        "One or more essential UI elements not found in sidepanel.html"
+      );
+      document.body.innerHTML =
+        "Error: Side panel UI elements missing or structure incorrect.";
+      return; // Stop initialization if elements are missing
+    }
+
+    // Load data from storage
     const storageData = await chrome.storage.local.get([
       "openai_api_key",
       VISIBLE_ASSISTANTS_STORAGE_KEY,
       CACHED_ASSISTANTS_KEY,
-      SAVED_INSTRUCTIONS_KEY, // Load instructions
+      SAVED_INSTRUCTIONS_KEY,
     ]);
 
     // Load Saved Instructions
@@ -666,12 +730,13 @@ async function initialize() {
     ) {
       savedInstructions = storageData[SAVED_INSTRUCTIONS_KEY];
     } else {
+      // Initialize if not present
       await chrome.storage.local.set({
         [SAVED_INSTRUCTIONS_KEY]: savedInstructions,
       });
     }
     console.log("Loaded instructions:", savedInstructions);
-    populateInstructionDropdown(); // Populate main dropdown
+    populateInstructionDropdown();
 
     // Load Visible IDs
     if (
@@ -691,44 +756,55 @@ async function initialize() {
     ) {
       allAssistants = storageData[CACHED_ASSISTANTS_KEY];
       console.log(`Loaded ${allAssistants.length} assistants from cache.`);
-      populateAssistantDropdown(); // Populate dropdown immediately
+      populateAssistantDropdown();
     } else {
       allAssistants = [];
       console.log("Assistant cache is empty.");
-      // Don't populate dropdown yet if cache is empty, wait for API key check
     }
 
     // Load API Key
     if (storageData.openai_api_key) {
       openAIApiKey = storageData.openai_api_key;
+      console.log("[Init] API Key FOUND in storage.");
       if (openAIApiKey !== null) {
         apiKeyInput.value = openAIApiKey;
       }
       console.log("API Key loaded.");
 
-      // If cache was empty but we have a key, prompt user
+      // **** Ensure Assistant elements are visible ****
+      console.log("[Init] Ensuring assistant elements are visible.");
+      assistantSelectLabel.style.display = ""; // Reset to default display
+      assistantSelect.style.display = ""; // Reset to default display
+      editAssistantsLink.style.display = ""; // Reset to default display (usually block/inline-block)
+      aiSelectBtn.style.display = ""; // Also ensure AI select button is visible
+
       if (allAssistants.length === 0) {
         updateStatus(
           "No assistants cached. Please 'Edit List' to load them.",
           true
         );
         populateAssistantDropdown(); // Populate with empty state
-        editAssistantsLink.style.display = "block"; // Ensure edit link is visible
+        // editAssistantsLink visibility handled above
       }
       showMainView();
     } else {
-      // Handle no API key
-      console.log("API Key not found.");
+      console.log("[Init] API Key NOT FOUND in storage.");
       updateStatus("Please save your OpenAI API Key in Settings.");
+      // Hide Assistant elements if no key
       assistantSelectLabel.style.display = "none";
       assistantSelect.style.display = "none";
       editAssistantsLink.style.display = "none";
+      aiSelectBtn.style.display = "none"; // Hide AI select button too
+      console.log(
+        "[Init] Attempting to call showSettingsView() due to missing key..."
+      );
       showSettingsView();
     }
+
+    // Set initial button state based on API key presence
+    setMainActionButtonState("generate", !openAIApiKey);
   } catch (error) {
-    // Handle storage error
-    console.error("Error loading data from storage:", error);
-    // Add type check for error
+    console.error("[Init] Error during initialization:", error);
     let errorMsg = "Error loading settings.";
     if (error instanceof Error) {
       errorMsg = `Error loading settings: ${error.message}`;
@@ -741,13 +817,14 @@ async function initialize() {
     visibleAssistantIds = [];
     populateAssistantDropdown();
     showSettingsView();
+    setMainActionButtonState("generate", true); // Disable button on error
+  } finally {
+    // Ensure spinner is hidden when initialization attempt finishes
+    showSpinner(false);
+    console.log("[Init] Initialization attempt finished.");
   }
 
-  // Ensure reply sections are hidden on load and button is in generate state
-  hideGeneratedReply();
-  setMainActionButtonState("generate");
-
-  setupEventListeners();
+  setupEventListeners(); // Setup listeners after initial load attempt
 }
 
 // --- OpenAI Assistant Fetching & Population ---
@@ -789,76 +866,12 @@ function populateAssistantDropdown() {
   }
 }
 
-/** Fetches the full list of assistants and stores it */
-async function fetchAssistants() {
-  if (!openAIApiKey) {
-    // Update status or alert if trying to fetch without key?
-    console.warn("Attempted to fetch assistants without API Key.");
-    throw new Error("API Key not set."); // Throw error to be caught by caller
-  }
-
-  console.log("Fetching OpenAI Assistants...");
-  allAssistants = []; // Clear previous list before fetching
-
-  let hasMore = true;
-  let afterId: string | undefined = undefined;
-
-  try {
-    // Pagination loop
-    while (hasMore) {
-      let endpoint = "/assistants?limit=100";
-      if (afterId) {
-        endpoint += `&after=${afterId}`;
-      }
-      console.log(`Fetching assistants page: ${endpoint}`);
-
-      const response = await fetchOpenAI<OpenAPIAssistantListResponse>(
-        endpoint,
-        openAIApiKey,
-        { method: "GET" }
-      );
-
-      if (response.data && response.data.length > 0) {
-        allAssistants = allAssistants.concat(response.data);
-      }
-      hasMore = response.has_more ?? false;
-      afterId = response.last_id;
-      if (!hasMore || !afterId) {
-        hasMore = false;
-      }
-      if (hasMore) await sleep(200);
-    }
-
-    console.log(`Fetched a total of ${allAssistants.length} assistants.`);
-
-    // Save to cache
-    await chrome.storage.local.set({ [CACHED_ASSISTANTS_KEY]: allAssistants });
-    console.log("Saved fetched assistants to cache.");
-
-    // If filter is empty after fetch (first time?), default to all visible
-    if (visibleAssistantIds.length === 0 && allAssistants.length > 0) {
-      visibleAssistantIds = allAssistants.map((a) => a.id);
-      await chrome.storage.local.set({
-        [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
-      });
-      console.log("Defaulting filter to show all assistants after fetch.");
-    }
-
-    // Fetch is complete, caller (showAssistantEditView) will handle populating the edit list
-  } catch (error) {
-    console.error("Error during assistant fetch loop:", error);
-    let errorMessage = "Error fetching assistants.";
-    if (error instanceof Error) {
-      errorMessage = `Error fetching assistants: ${error.message}`;
-    }
-    allAssistants = []; // Clear local state on error
-    // Rethrow the error so the calling function (showAssistantEditView) can handle UI state
-    throw new Error(errorMessage);
-  }
-}
-
 /** Populates the checkbox list in the assistant edit view, optionally filtering by search term */
 function populateAssistantEditList(searchTerm: string = "") {
+  console.log(
+    "[View] Populating assistant edit list, search:",
+    searchTerm || "(none)"
+  );
   assistantListContainer.innerHTML = ""; // Clear previous content
   const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
 
@@ -876,7 +889,7 @@ function populateAssistantEditList(searchTerm: string = "") {
     return;
   }
 
-  // Use visibleAssistantIds for initial check state
+  // Use visibleAssistantIds for initial check state when rebuilding the list
   const visibleSet = new Set(visibleAssistantIds);
 
   assistantsToDisplay.forEach((assistant) => {
@@ -887,8 +900,26 @@ function populateAssistantEditList(searchTerm: string = "") {
     checkbox.type = "checkbox";
     checkbox.id = `edit-${assistant.id}`;
     checkbox.value = assistant.id;
-    // Maintain checked status based on the overall visibleAssistantIds, not just the filtered view
-    checkbox.checked = visibleSet.has(assistant.id);
+    checkbox.checked = visibleSet.has(assistant.id); // Set initial state from current visible IDs
+
+    // *** Add event listener to update state immediately on change ***
+    checkbox.addEventListener("change", (event) => {
+      const target = event.target as HTMLInputElement;
+      const assistantId = target.value;
+      const isChecked = target.checked;
+
+      // Use a Set for efficient add/delete
+      const currentVisibleSet = new Set(visibleAssistantIds);
+      if (isChecked) {
+        currentVisibleSet.add(assistantId);
+        console.log(`[State] Added ${assistantId} to visibleAssistantIds`);
+      } else {
+        currentVisibleSet.delete(assistantId);
+        console.log(`[State] Removed ${assistantId} from visibleAssistantIds`);
+      }
+      // Update the main state array
+      visibleAssistantIds = Array.from(currentVisibleSet);
+    });
 
     const label = document.createElement("label");
     label.htmlFor = checkbox.id;
@@ -903,46 +934,97 @@ function populateAssistantEditList(searchTerm: string = "") {
 
 // --- Assistant Filter Handlers ---
 function handleSelectAllAssistants(selectAll: boolean) {
-  // Only affect visible checkboxes based on the current search term
-  const checkboxes = assistantListContainer.querySelectorAll<HTMLInputElement>(
-    '.assistant-item input[type="checkbox"]'
-  );
-  checkboxes.forEach((cb) => {
-    cb.checked = selectAll;
-  });
-}
-
-async function saveAssistantFilter() {
-  // Important: Read the current overall state before applying changes from the potentially filtered view.
-  const currentVisibleSet = new Set(visibleAssistantIds);
+  console.log(`handleSelectAllAssistants called with selectAll: ${selectAll}`);
   const visibleCheckboxes =
     assistantListContainer.querySelectorAll<HTMLInputElement>(
       '.assistant-item input[type="checkbox"]'
     );
 
-  // Update the set based ONLY on the assistants currently visible in the list
+  // Create a mutable set of the *full* list of currently selected IDs
+  const updatedVisibleSet = new Set(visibleAssistantIds);
+
+  // Iterate over only the checkboxes *currently visible* due to filtering
   visibleCheckboxes.forEach((cb) => {
-    if (cb.checked) {
-      currentVisibleSet.add(cb.value);
+    // Update the visual state of the visible checkbox
+    cb.checked = selectAll;
+
+    // Update the full set based on the action for this *visible* checkbox ID
+    if (selectAll) {
+      updatedVisibleSet.add(cb.value);
     } else {
-      currentVisibleSet.delete(cb.value);
+      updatedVisibleSet.delete(cb.value);
     }
   });
 
-  visibleAssistantIds = Array.from(currentVisibleSet); // Update state from the modified set
+  // Update the global state array immediately to reflect changes applied to visible items
+  visibleAssistantIds = Array.from(updatedVisibleSet);
+  console.log(
+    "Updated visibleAssistantIds after select/deselect all visible:",
+    visibleAssistantIds
+  );
+
+  // IMPORTANT: Do NOT save to storage here. Only update the intermediate state.
+}
+
+// Restore the original saveAssistantFilter logic
+async function saveAssistantFilter() {
+  console.log("saveAssistantFilter called.");
+  // Get the final state of *all* checkboxes rendered in the list at the moment of saving
+  // This reflects the user's final decision, including any filtering/searching they did.
+  const checkboxesInDOM =
+    assistantListContainer.querySelectorAll<HTMLInputElement>(
+      'input[type="checkbox"]'
+    );
+
+  // Rebuild the list of visible IDs based *only* on the final state of checkboxes in the DOM
+  const finalVisibleSet = new Set<string>();
+  checkboxesInDOM.forEach((cb) => {
+    if (cb.checked) {
+      finalVisibleSet.add(cb.value);
+    }
+  });
+
+  // This logic above is still potentially flawed if the list is filtered heavily.
+  // The most robust way is to merge the state.
+
+  // Let's try the merge approach again for save:
+  console.log("Recalculating final save state by merging...");
+  const finalMergedVisibleSet = new Set(visibleAssistantIds); // Start with state potentially modified by select/deselect all
+
+  // Iterate over *all* assistants known to the application
+  allAssistants.forEach((assistant) => {
+    const checkbox = assistantListContainer.querySelector<HTMLInputElement>(
+      `#edit-${assistant.id}`
+    );
+    if (checkbox) {
+      // If the checkbox is currently rendered in the DOM (i.e., not filtered out)
+      // Use the current checked state from the DOM
+      if (checkbox.checked) {
+        finalMergedVisibleSet.add(assistant.id);
+      } else {
+        finalMergedVisibleSet.delete(assistant.id);
+      }
+    }
+    // If the checkbox is *not* rendered (filtered out), its state in finalMergedVisibleSet
+    // (which was initialized from visibleAssistantIds, potentially modified by select/deselect all)
+    // remains unchanged, preserving the selection state of filtered-out items.
+  });
+
+  // Update the global state with the final calculated set
+  visibleAssistantIds = Array.from(finalMergedVisibleSet);
+  console.log("Final visibleAssistantIds to be saved:", visibleAssistantIds);
 
   try {
     await chrome.storage.local.set({
       [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
     });
-    console.log("Saved visible assistant filter:", visibleAssistantIds);
-    // Re-populate the main dropdown with the new filter applied
-    populateAssistantDropdown();
+    console.log("Saved visible assistant filter to storage.");
+    populateAssistantDropdown(); // Update the main dropdown
     showMainView(); // Go back to main view
     updateStatus("Assistant list filter saved.");
   } catch (error) {
     console.error("Error saving assistant filter:", error);
-    alert("Could not save assistant filter."); // Simple error feedback
+    alert("Could not save assistant filter.");
   }
 }
 
@@ -1028,6 +1110,7 @@ async function saveInstructionsToStorage() {
 
 // --- Event Listeners ---
 function setupEventListeners() {
+  console.log("[Event] Setting up event listeners...");
   // Main View Listeners
   refreshContextLink.addEventListener("click", handleGetEmailContent);
   mainActionBtn.addEventListener("click", handleMainActionButtonClick);
@@ -1040,17 +1123,14 @@ function setupEventListeners() {
   );
   regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
   regenInstructionsInput.addEventListener("input", handleRegenInstructionInput);
-  // Reset reply if assistant/instruction changed after generation
   assistantSelect.addEventListener("change", () => {
     if (currentReply !== null) {
-      // Check if a reply exists
       console.log("Assistant changed after reply generated, resetting state.");
       resetReplyState();
     }
   });
   instructionSelect.addEventListener("change", () => {
     if (currentReply !== null) {
-      // Check if a reply exists
       console.log(
         "Instruction changed after reply generated, resetting state."
       );
@@ -1058,8 +1138,35 @@ function setupEventListeners() {
     }
   });
 
+  // Custom Instruction Toggle
+  if (
+    toggleCustomInstructionButton &&
+    instructionSelect &&
+    customInstructionInput
+  ) {
+    customInstructionInput.placeholder = "Enter custom instruction...";
+    toggleCustomInstructionButton.addEventListener("click", () => {
+      const isDropdownVisible = instructionSelect.style.display !== "none";
+      if (isDropdownVisible) {
+        instructionSelect.style.display = "none";
+        customInstructionInput.style.display = "block";
+        customInstructionInput.focus();
+        toggleCustomInstructionButton.textContent = "Select";
+      } else {
+        instructionSelect.style.display = "";
+        customInstructionInput.style.display = "none";
+        toggleCustomInstructionButton.textContent = "Custom";
+      }
+    });
+  } else {
+    console.error("Custom instruction toggle elements not found!");
+  }
+
   // Top Bar Listener
-  settingsBtn.addEventListener("click", showSettingsView);
+  settingsBtn.addEventListener("click", () => {
+    console.log("[Event] Settings button clicked!");
+    showSettingsView();
+  });
 
   // Settings View Listeners
   saveKeyBtn.addEventListener("click", handleSaveApiKey);
@@ -1093,7 +1200,7 @@ function setupEventListeners() {
   );
   backToMainFromInstructionsBtn.addEventListener("click", showMainView);
 
-  // Listen for proactive updates AND quick reply flow trigger
+  // Chrome Runtime Message Listener
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateEmailContent") {
       console.log("Received proactive email content update:", message);
@@ -1117,9 +1224,8 @@ function setupEventListeners() {
         currentEmailContent = null;
       }
       sendResponse({ success: true });
-      return false;
+      return false; // Indicate sync response
     }
-
     if (message.action === "execute-quick-reply-flow") {
       console.log("Received quick reply flow trigger:", message);
       if (message.error) {
@@ -1182,40 +1288,11 @@ function setupEventListeners() {
       })();
 
       sendResponse({ success: true, message: "Quick reply flow initiated" });
-      return false;
+      return false; // Indicate sync response (async work started)
     }
-
-    // Default for unhandled messages
-    return false;
+    return false; // Default for unhandled messages
   });
-
-  // Add listener for the new custom instruction toggle button
-  if (
-    toggleCustomInstructionButton &&
-    instructionSelect &&
-    customInstructionInput
-  ) {
-    // Fix the placeholder typo from the previous HTML edit
-    customInstructionInput.placeholder = "Enter custom instruction...";
-
-    toggleCustomInstructionButton.addEventListener("click", () => {
-      const isDropdownVisible = instructionSelect.style.display !== "none";
-      if (isDropdownVisible) {
-        // Switch to custom input
-        instructionSelect.style.display = "none";
-        customInstructionInput.style.display = "block";
-        customInstructionInput.focus();
-        toggleCustomInstructionButton.textContent = "Select"; // Change button text
-      } else {
-        // Switch back to dropdown
-        instructionSelect.style.display = ""; // Reset to default display (likely block or inline-block)
-        customInstructionInput.style.display = "none";
-        toggleCustomInstructionButton.textContent = "Custom"; // Change button text back
-      }
-    });
-  } else {
-    console.error("Custom instruction toggle elements not found!");
-  }
+  console.log("[Event] Event listeners set up.");
 }
 
 // --- Action Handlers ---
@@ -1393,10 +1470,18 @@ async function handleGenerateReply(
       currentReply = latestAssistantMessage.content[0].text.value;
       replyOutputTextarea.value = currentReply;
       showGeneratedReply();
-      setMainActionButtonState("insert");
-      regenerationControls.style.display = "none";
-      regenInstructionsInput.value = "";
       updateStatus(isRegeneration ? "Reply regenerated." : "Reply generated.");
+
+      // **** Automatically insert the reply ****
+      console.log("Generated reply, now attempting automatic insertion...");
+      await handleInsertReply();
+      // handleInsertReply will handle button state updates on success/failure.
+      // The line below might be redundant now or could briefly override handleInsertReply's state changes.
+      // Consider removing setMainActionButtonState("insert"); later if needed.
+      setMainActionButtonState("insert");
+
+      regenerationControls.style.display = "none"; // Keep this reset
+      regenInstructionsInput.value = ""; // Keep this reset
     } else {
       throw new Error(
         "Could not find a valid assistant text reply in the thread messages."
@@ -1491,174 +1576,6 @@ async function handleInsertReply() {
   }
 }
 
-async function handleSaveApiKey() {
-  const key = apiKeyInput.value.trim();
-  if (key) {
-    try {
-      await chrome.storage.local.set({ openai_api_key: key });
-      openAIApiKey = key;
-      console.log("API Key saved.");
-      await fetchAssistants();
-      showMainView();
-      updateStatus("API Key saved successfully.");
-    } catch (error) {
-      console.error("Error saving API key:", error);
-      let errorMessage = "An unknown error occurred while saving the API key.";
-      if (error instanceof Error) {
-        errorMessage = `Error saving API key: ${error.message}`;
-        console.error("Specific save error:", error.message);
-      }
-      alert(`Error saving API Key: ${errorMessage}`);
-    }
-  } else {
-    alert("API Key cannot be empty.");
-  }
-}
-
-async function handleAiSelectAssistant() {
-  if (!openAIApiKey) {
-    alert("Please set your OpenAI API Key in Settings first.");
-    return;
-  }
-  if (!currentEmailContent) {
-    alert("Please get the email content first (use Refresh).");
-    return;
-  }
-  if (allAssistants.length === 0) {
-    alert("No assistants loaded. Please use 'Edit List' first.");
-    return;
-  }
-
-  showSpinner(true);
-  updateStatus("Asking AI for recommendation...", false);
-
-  const visibleOptions = Array.from(assistantSelect.options)
-    .filter((opt) => opt.value)
-    .map((opt) => ({ id: opt.value, name: opt.textContent || opt.value }));
-
-  if (visibleOptions.length === 0) {
-    alert("No assistants available in the dropdown to choose from.");
-    showSpinner(false);
-    return;
-  }
-
-  const assistantListText = visibleOptions
-    .map((a) => `- ID: ${a.id}, Name: ${a.name}`)
-    .join("\n");
-
-  const prompt = `Given the following email thread content and a list of available OpenAI Assistants, please recommend the single most suitable assistant ID for generating a helpful reply.
-
-Email Thread Content:
----
-${currentEmailContent}
----
-
-Available Assistants:
----
-${assistantListText}
----
-
-Based on the email content and the likely purpose of each assistant (inferred from name/ID), which assistant ID is the best fit? Please return ONLY the ID of the recommended assistant and nothing else.`;
-
-  console.log("Sending prompt to GPT-4o-mini for recommendation...");
-
-  try {
-    const response = await fetchOpenAI<{
-      choices: { message: { content: string } }[];
-    }>("/chat/completions", openAIApiKey, {
-      method: "POST",
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 50,
-      }),
-      headers: { "OpenAI-Beta": "" },
-    });
-
-    if (
-      response.choices &&
-      response.choices.length > 0 &&
-      response.choices[0].message?.content
-    ) {
-      const recommendedId = response.choices[0].message.content.trim();
-      console.log("AI recommended assistant ID:", recommendedId);
-
-      const isValidRecommendation = visibleOptions.some(
-        (opt) => opt.id === recommendedId
-      );
-
-      if (isValidRecommendation) {
-        assistantSelect.value = recommendedId;
-        updateStatus("AI recommended assistant selected.");
-      } else {
-        console.error(
-          "AI returned an invalid or non-visible assistant ID:",
-          recommendedId
-        );
-        alert(
-          "AI recommended an assistant that is not currently in your visible list."
-        );
-        updateStatus("AI recommendation was not in the visible list.", true);
-      }
-    } else {
-      throw new Error("Invalid response structure from AI recommendation.");
-    }
-  } catch (error) {
-    console.error("Error getting AI assistant recommendation:", error);
-    let errorMsg = "Could not get AI recommendation.";
-    if (error instanceof Error) {
-      errorMsg = `Error getting AI recommendation: ${error.message}`;
-    }
-    alert(errorMsg);
-    updateStatus(errorMsg, true);
-  } finally {
-    showSpinner(false);
-  }
-}
-
-async function handleMainActionButtonClick() {
-  console.log(
-    `Main action button clicked. Current state: ${currentActionButtonState}`
-  );
-
-  // Determine the instruction to use *before* deciding the action
-  let instructionToSend: string | null = null;
-  if (customInstructionInput.style.display !== "none") {
-    // Custom input is visible
-    instructionToSend = customInstructionInput.value.trim();
-    console.log("Using custom instruction:", instructionToSend);
-  } else {
-    // Dropdown is visible
-    instructionToSend = instructionSelect.value;
-    console.log("Using selected instruction:", instructionToSend);
-  }
-  // Ensure empty strings/values are treated as null
-  if (!instructionToSend) {
-    instructionToSend = null;
-  }
-
-  switch (currentActionButtonState) {
-    case "generate":
-    case "regenerate":
-      // Pass the determined instruction to handleGenerateReply
-      await handleGenerateReply(
-        currentActionButtonState === "regenerate",
-        instructionToSend
-      );
-      break;
-    case "insert":
-      await handleInsertReply();
-      break;
-    default:
-      console.error(
-        "Unknown main action button state:",
-        currentActionButtonState
-      );
-  }
-}
-
-// --- Assistant Instruction Save Handler ---
 async function handleSaveAssistantInstructions() {
   if (!currentEditingAssistantId) {
     alert("Error: No assistant ID found to update.");
@@ -1733,5 +1650,261 @@ async function handleSaveAssistantInstructions() {
   }
 }
 
-// --- Run Initialization ---
-initialize();
+// --- Action Handlers (including handleSaveApiKey) ---
+
+// Define handleSaveApiKey if it was removed previously, or modify existing
+async function handleSaveApiKey() {
+  const newApiKey = apiKeyInput.value.trim();
+  if (newApiKey) {
+    console.log("Attempting to save API Key...");
+    showSpinner(true);
+    try {
+      // Validate key first
+      await fetchAvailableModels(newApiKey);
+      console.log("API Key validated successfully.");
+
+      // Key is valid, save it
+      await chrome.storage.local.set({ openai_api_key: newApiKey });
+      openAIApiKey = newApiKey;
+      updateStatus("API Key saved and validated successfully.");
+      console.log("API Key saved, re-initializing...");
+
+      // Re-run initialization to load data with the new key
+      await initialize(); // Wait for initialize to finish loading data (including allAssistants)
+
+      // *** Navigate based on assistant list state ***
+      if (allAssistants.length === 0) {
+        console.log(
+          "[SaveKey] Assistant list empty after init, showing Edit Assistant view."
+        );
+        showAssistantEditView(); // Go directly to edit list
+      } else {
+        console.log("[SaveKey] Assistants loaded, showing Main view.");
+        // Only switch view if initialize didn't redirect and we are in settings
+        if (settingsView && settingsView.classList.contains("active-view")) {
+          showMainView();
+        }
+      }
+    } catch (error) {
+      console.error("Error saving or validating API Key:", error);
+      let errorMsg = "Failed to save API Key.";
+      if (error instanceof Error && error.message.includes("401")) {
+        errorMsg = "Invalid API Key. Please check and try again.";
+      } else if (error instanceof Error) {
+        errorMsg = `Failed to save API Key: ${error.message}`;
+      }
+      updateStatus(errorMsg, true);
+      alert(errorMsg);
+      showSpinner(false);
+    }
+    // Spinner is hidden by initialize() or the catch block
+  } else {
+    // ... existing handling for empty key ...
+    updateStatus("API Key cannot be empty.", true);
+    alert("API Key cannot be empty.");
+    showSpinner(false);
+  }
+}
+
+async function handleAiSelectAssistant() {
+  if (!openAIApiKey) {
+    alert("Please set your OpenAI API Key in Settings first.");
+    return;
+  }
+  if (!currentEmailContent) {
+    alert("Please get the email content first (use Refresh).");
+    return;
+  }
+  if (allAssistants.length === 0) {
+    alert("No assistants loaded. Please use 'Edit List' first.");
+    return;
+  }
+
+  showSpinner(true);
+  updateStatus("Asking AI for recommendation...", false);
+
+  const visibleOptions = Array.from(assistantSelect.options)
+    .filter((opt) => opt.value)
+    .map((opt) => ({ id: opt.value, name: opt.textContent || opt.value }));
+
+  if (visibleOptions.length === 0) {
+    alert("No assistants available in the dropdown to choose from.");
+    showSpinner(false);
+    return;
+  }
+
+  const assistantListText = visibleOptions
+    .map((a) => `- ID: ${a.id}, Name: ${a.name}`)
+    .join("\n");
+
+  const prompt = `Given the following email thread content and a list of available OpenAI Assistants, please recommend the single most suitable assistant ID for generating a helpful reply.
+
+Email Thread Content:
+---
+${currentEmailContent}
+---
+
+Available Assistants:
+---
+${assistantListText}
+---
+
+Based on the email content and the likely purpose of each assistant (inferred from name/ID), which assistant ID is the best fit? Please return ONLY the ID of the recommended assistant and nothing else.`;
+
+  console.log("Sending prompt to GPT-4o-mini for recommendation...");
+
+  try {
+    const response = await fetchOpenAI<{
+      choices: { message: { content: string } }[];
+    }>("/chat/completions", openAIApiKey, {
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Use a capable model
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 50, // Enough for just the ID
+      }),
+      headers: { "OpenAI-Beta": "" }, // Don't need assistants beta here
+    });
+
+    if (
+      response.choices &&
+      response.choices.length > 0 &&
+      response.choices[0].message?.content
+    ) {
+      const recommendedId = response.choices[0].message.content.trim();
+      console.log("AI recommended assistant ID:", recommendedId);
+
+      // Check if the recommended ID exists in the dropdown
+      const isValidRecommendation = visibleOptions.some(
+        (opt) => opt.id === recommendedId
+      );
+
+      if (isValidRecommendation) {
+        assistantSelect.value = recommendedId;
+        updateStatus("AI recommended assistant selected.");
+        resetReplyState(); // Reset reply if assistant changed
+      } else {
+        console.error(
+          "AI returned an invalid or non-visible assistant ID:",
+          recommendedId
+        );
+        alert(
+          "AI recommended an assistant that is not currently in your visible list."
+        );
+        updateStatus("AI recommendation was not in the visible list.", true);
+      }
+    } else {
+      throw new Error("Invalid response structure from AI recommendation.");
+    }
+  } catch (error) {
+    console.error("Error getting AI assistant recommendation:", error);
+    let errorMsg = "Could not get AI recommendation.";
+    if (error instanceof Error) {
+      errorMsg = `Error getting AI recommendation: ${error.message}`;
+    }
+    alert(errorMsg);
+    updateStatus(errorMsg, true);
+  } finally {
+    showSpinner(false);
+  }
+}
+
+async function handleMainActionButtonClick() {
+  console.log(
+    `Main action button clicked. Current state: ${currentActionButtonState}`
+  );
+
+  let instructionToSend: string | null = null;
+  if (customInstructionInput.style.display !== "none") {
+    instructionToSend = customInstructionInput.value.trim();
+    console.log("Using custom instruction:", instructionToSend);
+  } else {
+    instructionToSend = instructionSelect.value;
+    console.log("Using selected instruction:", instructionToSend);
+  }
+  if (!instructionToSend) {
+    instructionToSend = null;
+  }
+
+  switch (currentActionButtonState) {
+    case "generate":
+    case "regenerate":
+      await handleGenerateReply(
+        currentActionButtonState === "regenerate",
+        instructionToSend
+      );
+      break;
+    case "insert":
+      await handleInsertReply();
+      break;
+    default:
+      console.error(
+        "Unknown main action button state:",
+        currentActionButtonState
+      );
+  }
+}
+
+// --- Run Initialization --- (Should be called only once)
+initialize(); // Ensure this line is uncommented and present
+
+// Ensure fetchAllAssistantsFromAPI exists and handles updating allAssistants array
+// (Based on previous edits, this function should be present)
+async function fetchAllAssistantsFromAPI(apiKey: string): Promise<void> {
+  console.log("[API] Fetching OpenAI Assistants...");
+  // Ensure API key is used correctly (passed as argument)
+  if (!apiKey) {
+    console.error("[API] fetchAllAssistantsFromAPI called without API Key.");
+    throw new Error("API Key not provided for fetching assistants.");
+  }
+
+  showSpinner(true); // Show spinner during fetch
+  allAssistants = []; // Clear previous list before fetching
+  let hasMore = true;
+  let afterId: string | undefined = undefined;
+
+  try {
+    while (hasMore) {
+      let endpoint = "/assistants?limit=100";
+      if (afterId) {
+        endpoint += `&after=${afterId}`;
+      }
+      console.log(`[API] Fetching assistants page: ${endpoint}`);
+      const response = await fetchOpenAI<any>(
+        endpoint,
+        apiKey, // Use the passed apiKey
+        { method: "GET" }
+      );
+
+      if (response.data && response.data.length > 0) {
+        allAssistants = allAssistants.concat(response.data);
+      }
+      hasMore = response.has_more ?? false;
+      afterId = response.last_id;
+      if (!hasMore || !afterId) hasMore = false;
+      if (hasMore) await sleep(200);
+    }
+    console.log(`[API] Fetched a total of ${allAssistants.length} assistants.`);
+    await chrome.storage.local.set({ [CACHED_ASSISTANTS_KEY]: allAssistants });
+    console.log("[API] Saved fetched assistants to cache.");
+
+    // If filter is still empty (first time?), default to all visible
+    if (visibleAssistantIds.length === 0 && allAssistants.length > 0) {
+      visibleAssistantIds = allAssistants.map((a) => a.id);
+      await chrome.storage.local.set({
+        [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
+      });
+      console.log(
+        "[API] Defaulting filter to show all assistants after fetch."
+      );
+    }
+  } catch (error) {
+    console.error("[API] Error during assistant fetch loop:", error);
+    allAssistants = []; // Clear local state on error
+    // Re-throw error to be handled by the caller (showAssistantEditView)
+    throw error;
+  } finally {
+    showSpinner(false); // Hide spinner when fetch attempt ends
+  }
+}

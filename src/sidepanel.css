@@ -176,19 +176,7 @@ body {
 
 /* Search Input */
 #assistant-search-input {
-  font-family: "Roboto", sans-serif;
-  font-size: 0.875rem; /* 14px */
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  width: 100%;
-  margin-bottom: 12px; /* Space below search */
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-#assistant-search-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color);
+  margin-bottom: 12px; /* Keep margin */
 }
 
 /* Controls for Select/Deselect All */
@@ -289,26 +277,11 @@ label[for="reply-output"] {
   color: var(--text-color-secondary);
 }
 
-select#assistant-select {
-  font-family: "Roboto", sans-serif;
-  font-size: 0.875rem;
-  padding: 8px 12px;
-  border: 1px solid transparent; /* Remove border initially */
-  border-radius: 4px;
-  width: 100%;
-  height: 38px;
-  background-color: var(--input-background);
-  color: var(--text-color-primary);
-  cursor: pointer;
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
-    background-color 0.2s ease-in-out;
-}
-
-select#assistant-select:focus {
-  outline: none;
-  background-color: var(--background-color);
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color);
+select#assistant-select,
+select#instruction-select,
+select#assistant-model-select {
+  /* font-family, font-size, padding, border, border-radius, width, height, background-color, color, cursor, transition, appearance now handled by .form-input and select.form-input */
+  /* Remove focus rule */
 }
 
 /* Adjust main button styling if needed inside flex */
@@ -350,22 +323,7 @@ select#assistant-select:focus {
   color: var(--text-color-secondary);
 }
 .regeneration-controls input[type="text"] {
-  /* Reuse existing input styles but maybe adjust slightly */
-  font-family: "Roboto", sans-serif;
-  font-size: 0.875rem;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  width: 100%;
-  background-color: var(--input-background);
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
-    background-color 0.2s ease-in-out;
-}
-.regeneration-controls input[type="text"]:focus {
-  outline: none;
-  background-color: var(--background-color);
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color);
+  /* font-family, font-size, padding, border, border-radius, width, background-color, transition now handled by .form-input */
 }
 
 /* Adjust button group when it's fixed */
@@ -387,13 +345,6 @@ select#assistant-select:focus {
 #reply-review-view .button-group.fixed-bottom-button-container button {
   flex-grow: 1; /* Allow buttons to share space */
   width: auto; /* Override width: 100% from generic rule */
-}
-
-/* Adjust API Save button styling */
-#settings-view div > button#save-key-btn {
-  padding: 6px 12px;
-  min-height: 32px;
-  font-size: 0.8125rem;
 }
 
 /* Assistant Select Header */
@@ -418,32 +369,6 @@ select#assistant-select:focus {
 .instruction-selector-header label {
   /* Apply to both */
   margin-bottom: 0;
-}
-
-/* Instruction Select Dropdown */
-select#instruction-select {
-  /* Inherit styles from assistant select for consistency */
-  font-family: "Roboto", sans-serif;
-  font-size: 0.875rem;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  width: 100%;
-  height: 38px;
-  background-color: var(--input-background);
-  color: var(--text-color-primary);
-  cursor: pointer;
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
-    background-color 0.2s ease-in-out;
-}
-select#instruction-select:hover {
-  background-color: #f1f3f4;
-}
-select#instruction-select:focus {
-  outline: none;
-  background-color: var(--background-color);
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px var(--primary-color);
 }
 
 /* Instruction Edit View */
@@ -684,27 +609,33 @@ button#save-key-btn:hover,
 
 /* Textarea & Inputs */
 textarea#reply-output,
-select#assistant-select,
-input#api-key,
-input#assistant-search-input {
-  background-color: var(--input-background);
-  border: 1px solid transparent; /* Remove border initially */
+textarea#assistant-instructions-textarea,
+textarea#custom-instruction-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 8px 12px;
+  background-color: var(--input-background);
+  font-family: "Roboto", sans-serif;
   font-size: 0.875rem;
+  line-height: 1.4;
+  min-height: 60px;
+  resize: vertical;
   transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
     background-color 0.2s ease-in-out;
 }
+
 textarea#reply-output:hover,
-select#assistant-select:hover,
-input#api-key:hover,
-input#assistant-search-input:hover {
-  background-color: #f1f3f4; /* Slightly darker on hover */
+textarea#assistant-instructions-textarea:hover,
+textarea#custom-instruction-input:hover {
+  /* Optional: Add hover effect if desired */
+  /* background-color: #f1f3f4; */
 }
+
 textarea#reply-output:focus,
-select#assistant-select:focus,
-input#api-key:focus,
-input#assistant-search-input:focus {
+textarea#assistant-instructions-textarea:focus,
+textarea#custom-instruction-input:focus {
   outline: none;
   background-color: var(--background-color);
   border-color: var(--primary-color);
@@ -918,4 +849,43 @@ input#assistant-search-input:focus {
 #assistant-instruction-edit-view textarea {
   width: 100%; /* Make sure selects and textareas take full width */
   box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+/* NEW: Common styles for form inputs and selects */
+.form-input {
+  display: block; /* Ensure they take full width by default */
+  width: 100%;
+  padding: 8px 12px;
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  color: var(--text-color-primary);
+  background-color: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+  /* For selects, appearance might be needed for consistent styling */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Adjust height specifically for selects */
+select.form-input {
+  height: 38px; /* Match previous select height */
+  cursor: pointer;
+  /* Add background image for dropdown arrow */
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="%235f6368"><path d="M4.5 6.5L8 10l3.5-3.5H4.5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px 16px;
+  padding-right: 30px; /* Add padding to avoid text overlapping arrow */
+}
+
+/* Focus state for all form inputs */
+.form-input:focus {
+  outline: none;
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
 }
