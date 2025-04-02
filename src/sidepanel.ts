@@ -146,6 +146,9 @@ const saveAssistantFilterBtn = document.getElementById(
 const cancelAssistantFilterBtn = document.getElementById(
   "cancel-assistant-filter-btn"
 ) as HTMLButtonElement;
+const refreshAssistantListBtn = document.getElementById(
+  "refresh-assistant-list-btn"
+) as HTMLButtonElement;
 
 // Assistant Edit View Elements
 const assistantSearchInput = document.getElementById(
@@ -705,7 +708,8 @@ async function initialize() {
       !backToMainFromInstructionsBtn ||
       !instructionEditStatusDiv ||
       !customInstructionInput ||
-      !toggleCustomInstructionButton
+      !toggleCustomInstructionButton ||
+      !refreshAssistantListBtn
     ) {
       console.error(
         "One or more essential UI elements not found in sidepanel.html"
@@ -1028,11 +1032,6 @@ async function saveAssistantFilter() {
   }
 }
 
-function cancelAssistantFilter() {
-  // Don't save changes, just go back
-  showMainView();
-}
-
 // --- Instruction Management ---
 function populateInstructionDropdown() {
   instructionSelect.innerHTML =
@@ -1182,7 +1181,8 @@ function setupEventListeners() {
     handleSelectAllAssistants(false)
   );
   saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
-  cancelAssistantFilterBtn.addEventListener("click", cancelAssistantFilter);
+  cancelAssistantFilterBtn.addEventListener("click", showMainView);
+  refreshAssistantListBtn.addEventListener("click", handleRefreshAssistantList);
 
   // Instruction Edit View Listeners
   addInstructionBtn.addEventListener("click", addInstruction);
@@ -1906,5 +1906,41 @@ async function fetchAllAssistantsFromAPI(apiKey: string): Promise<void> {
     throw error;
   } finally {
     showSpinner(false); // Hide spinner when fetch attempt ends
+  }
+}
+
+// *** Add the new handler function ***
+async function handleRefreshAssistantList() {
+  console.log("[Action] handleRefreshAssistantList called.");
+  if (!openAIApiKey) {
+    console.error("[Refresh] No API key available.");
+    alert("API Key not set. Please configure it in Settings.");
+    return;
+  }
+
+  showSpinner(true);
+  // Provide feedback in the list container itself
+  assistantListContainer.innerHTML =
+    "<p>Refreshing assistants from OpenAI...</p>";
+
+  try {
+    // Fetch the latest list - this updates allAssistants and caches it
+    await fetchAllAssistantsFromAPI(openAIApiKey);
+    console.log("[Refresh] Fetch completed.");
+    // Repopulate the edit list with the fresh data, preserving any current search filter
+    populateAssistantEditList(assistantSearchInput.value);
+    console.log("[Refresh] List repopulated.");
+    updateStatus("Assistant list refreshed.", false); // Provide status feedback
+  } catch (error) {
+    console.error("[Refresh] Error refreshing assistants:", error);
+    let errorMsg = "Failed to refresh assistants from OpenAI.";
+    if (error instanceof Error) {
+      errorMsg = `Error: ${error.message}`;
+    }
+    // Display error within the list container
+    assistantListContainer.innerHTML = `<p class="error-message">${errorMsg}</p>`;
+    updateStatus("Error refreshing assistant list.", true); // Provide status feedback
+  } finally {
+    showSpinner(false);
   }
 }
