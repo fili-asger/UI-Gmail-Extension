@@ -177,6 +177,9 @@
         <button id="refresh-assistant-list-btn" class="secondary-button">
           Refresh List
         </button>
+        <button id="create-assistant-btn" class="secondary-button">
+          Create New
+        </button>
       </div>
     </div>
 
@@ -208,6 +211,17 @@
     <div id="assistant-instruction-edit-view" class="content-view">
       <h2>Edit Assistant</h2>
       <p>Editing: <strong id="editing-assistant-name">N/A</strong></p>
+
+      <!-- Assistant Name Input -->
+      <div class="form-group">
+        <label for="assistant-name-input">Assistant Name:</label>
+        <input
+          type="text"
+          id="assistant-name-input"
+          class="form-input"
+          placeholder="Enter assistant name..."
+        />
+      </div>
 
       <!-- Model Selection -->
       <div class="form-group">

@@ -149,6 +149,9 @@ const cancelAssistantFilterBtn = document.getElementById(
 const refreshAssistantListBtn = document.getElementById(
   "refresh-assistant-list-btn"
 ) as HTMLButtonElement;
+const createAssistantBtn = document.getElementById(
+  "create-assistant-btn"
+) as HTMLButtonElement;
 
 // Assistant Edit View Elements
 const assistantSearchInput = document.getElementById(
@@ -209,6 +212,9 @@ const backToMainFromInstructionsBtn = document.getElementById(
 const instructionEditStatusDiv = document.getElementById(
   "instruction-edit-status"
 ) as HTMLDivElement;
+const assistantNameInput = document.getElementById(
+  "assistant-name-input"
+) as HTMLInputElement;
 
 // New elements
 const editAssistantInstructionsLink = document.getElementById(
@@ -446,6 +452,7 @@ async function showAssistantInstructionEditView() {
     );
     assistantInstructionsTextarea.value = "";
     editingAssistantNameSpan.textContent = "Loading...";
+    assistantNameInput.value = "";
     assistantModelSelect.innerHTML = ""; // Clear previous models
     assistantModelSelect.disabled = false; // Re-enable in case it was disabled by previous error
     assistantInstructionsTextarea.disabled = false;
@@ -479,6 +486,7 @@ async function showAssistantInstructionEditView() {
       // Set assistant details
       editingAssistantNameSpan.textContent =
         assistant.name || `ID: ${assistant.id.substring(0, 6)}...`;
+      assistantNameInput.value = assistant.name || "";
       assistantInstructionsTextarea.value = assistant.instructions || "";
 
       // Set the selected model, adding it if it's not in the fetched list
@@ -709,7 +717,9 @@ async function initialize() {
       !instructionEditStatusDiv ||
       !customInstructionInput ||
       !toggleCustomInstructionButton ||
-      !refreshAssistantListBtn
+      !refreshAssistantListBtn ||
+      !createAssistantBtn ||
+      !assistantNameInput
     ) {
       console.error(
         "One or more essential UI elements not found in sidepanel.html"
@@ -1183,6 +1193,7 @@ function setupEventListeners() {
   saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
   cancelAssistantFilterBtn.addEventListener("click", showMainView);
   refreshAssistantListBtn.addEventListener("click", handleRefreshAssistantList);
+  createAssistantBtn.addEventListener("click", handleCreateAssistant);
 
   // Instruction Edit View Listeners
   addInstructionBtn.addEventListener("click", addInstruction);
@@ -1588,6 +1599,12 @@ async function handleSaveAssistantInstructions() {
 
   const newInstructions = assistantInstructionsTextarea.value;
   const selectedModel = assistantModelSelect.value;
+  const newName = assistantNameInput.value.trim();
+
+  if (!newName) {
+    alert("Error: Assistant name cannot be empty.");
+    return;
+  }
 
   if (!selectedModel) {
     alert("Error: Please select a model.");
@@ -1600,6 +1617,7 @@ async function handleSaveAssistantInstructions() {
   updateAssistantInstructionEditStatus("Saving changes...", false);
 
   const payload = {
+    name: newName,
     instructions: newInstructions,
     model: selectedModel,
   };
@@ -1623,11 +1641,13 @@ async function handleSaveAssistantInstructions() {
       (a) => a.id === currentEditingAssistantId
     );
     if (index !== -1) {
+      allAssistants[index].name = newName;
       allAssistants[index].instructions = newInstructions;
       allAssistants[index].model = selectedModel;
       await chrome.storage.local.set({
         [CACHED_ASSISTANTS_KEY]: allAssistants,
       });
+      populateAssistantDropdown();
     }
 
     setTimeout(() => {
@@ -1940,6 +1960,78 @@ async function handleRefreshAssistantList() {
     // Display error within the list container
     assistantListContainer.innerHTML = `<p class="error-message">${errorMsg}</p>`;
     updateStatus("Error refreshing assistant list.", true); // Provide status feedback
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// *** Add handler for creating a new assistant ***
+async function handleCreateAssistant() {
+  console.log("[Action] handleCreateAssistant called.");
+  if (!openAIApiKey) {
+    console.error("[Create Assistant] No API key available.");
+    alert("API Key not set. Please configure it in Settings.");
+    return;
+  }
+
+  const assistantName = window.prompt("Enter a name for the new assistant:");
+  if (!assistantName || assistantName.trim() === "") {
+    console.log("[Create Assistant] User cancelled or provided empty name.");
+    return;
+  }
+
+  showSpinner(true);
+  updateStatus("Creating new assistant...", false);
+
+  const payload = {
+    name: assistantName.trim(),
+    model: "o3-mini", // Default model set to o3-mini as requested
+    // instructions: "", // Optionally add default instructions later
+    // tools: [], // Optionally add default tools later
+  };
+
+  console.log("[Create Assistant] Sending payload:", payload);
+
+  try {
+    const newAssistant = await fetchOpenAI<OpenAIAssistant>(
+      `/assistants`,
+      openAIApiKey,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    console.log(
+      "[Create Assistant] Assistant created successfully:",
+      newAssistant
+    );
+
+    // Add the new assistant to the global list and cache
+    allAssistants.unshift(newAssistant); // Add to the beginning for visibility
+    await chrome.storage.local.set({ [CACHED_ASSISTANTS_KEY]: allAssistants });
+    console.log("[Create Assistant] Updated local cache.");
+
+    // Also add the new assistant's ID to the visible list by default
+    if (!visibleAssistantIds.includes(newAssistant.id)) {
+      visibleAssistantIds.unshift(newAssistant.id);
+      await chrome.storage.local.set({
+        [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
+      });
+      console.log("[Create Assistant] Added new assistant to visible list.");
+    }
+
+    // Refresh the edit list to show the new assistant
+    populateAssistantEditList(assistantSearchInput.value);
+    updateStatus(`Assistant "${assistantName}" created successfully.`, false);
+  } catch (error) {
+    console.error("[Create Assistant] Error creating assistant:", error);
+    let errorMsg = "Failed to create assistant.";
+    if (error instanceof Error) {
+      errorMsg = `Error: ${error.message}`;
+    }
+    updateStatus(errorMsg, true);
+    alert(`Failed to create assistant: ${errorMsg}`); // Also show alert
   } finally {
     showSpinner(false);
   }
