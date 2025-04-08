@@ -351,43 +351,42 @@ async function showAssistantEditView() {
     hideGeneratedReply();
     assistantSearchInput.value = "";
 
-    // Check if assistants are loaded, if not, fetch them
-    if (!openAIApiKey) {
-      console.error(
-        "[View] showAssistantEditView - No API key available to fetch assistants."
-      );
-      assistantListContainer.innerHTML =
-        '<p class="error-message">API Key not set. Please configure it in Settings.</p>';
-      return;
-    }
-
     // If the list is empty, try fetching from API
     if (allAssistants.length === 0) {
       console.log(
         "[View] showAssistantEditView - Assistant list is empty, attempting to fetch..."
       );
-      assistantListContainer.innerHTML =
-        "<p>Loading assistants from OpenAI...</p>"; // Show loading message
-      showSpinner(true);
-      try {
-        // Directly call the fetching logic here (assuming fetchAllAssistantsFromAPI exists)
-        // This function should handle fetching *and* updating the allAssistants array
-        await fetchAllAssistantsFromAPI(openAIApiKey);
-        console.log("[View] showAssistantEditView - Fetch completed.");
-        // If fetch succeeded, populate the list. If it failed, the catch block will handle status.
-        populateAssistantEditList();
-      } catch (error) {
-        console.error(
-          "[View] showAssistantEditView - Error fetching assistants:",
-          error
-        );
-        let errorMsg = "Failed to load assistants from OpenAI.";
-        if (error instanceof Error) {
-          errorMsg = `Error: ${error.message}`;
+      if (openAIApiKey) {
+        // Check if API key exists before fetching
+        assistantListContainer.innerHTML =
+          "<p>Loading assistants from OpenAI...</p>"; // Show loading message
+        showSpinner(true);
+        try {
+          // Directly call the fetching logic here
+          await fetchAllAssistantsFromAPI(openAIApiKey);
+          console.log("[View] showAssistantEditView - Fetch completed.");
+          // If fetch succeeded, populate the list. If it failed, the catch block will handle status.
+          populateAssistantEditList();
+        } catch (error) {
+          console.error(
+            "[View] showAssistantEditView - Error fetching assistants:",
+            error
+          );
+          let errorMsg = "Failed to load assistants from OpenAI.";
+          if (error instanceof Error) {
+            errorMsg = `Error: ${error.message}`;
+          }
+          assistantListContainer.innerHTML = `<p class="error-message">${errorMsg}</p>`;
+        } finally {
+          showSpinner(false);
         }
-        assistantListContainer.innerHTML = `<p class="error-message">${errorMsg}</p>`;
-      } finally {
-        showSpinner(false);
+      } else {
+        // Handle case where API key is null (already checked above, but explicit here)
+        console.error(
+          "[View] showAssistantEditView - Cannot fetch assistants, API Key is null."
+        );
+        assistantListContainer.innerHTML =
+          '<p class="error-message">API Key not set. Cannot load assistants.</p>';
       }
     } else {
       // If assistants are already loaded (from cache/previous fetch), just populate
@@ -421,9 +420,13 @@ function showInstructionEditView() {
   }
 }
 
-async function showAssistantInstructionEditView() {
-  const selectedAssistantId = assistantSelect.value;
+// Modify function signature to accept an optional ID
+async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
+  // Determine which ID to use: the passed one or the dropdown value
+  const selectedAssistantId = assistantIdToEdit || assistantSelect.value;
+
   if (!selectedAssistantId) {
+    // This alert should now only trigger if called from main view with no selection
     alert("Please select an assistant from the dropdown first.");
     return;
   }
@@ -839,6 +842,8 @@ async function initialize() {
   }
 
   setupEventListeners(); // Setup listeners after initial load attempt
+  setupAssistantListActionListener(); // Call the new setup function
+  console.log("[Init] Initialization complete.");
 }
 
 // --- OpenAI Assistant Fetching & Population ---
@@ -915,6 +920,7 @@ function populateAssistantEditList(searchTerm: string = "") {
     checkbox.id = `edit-${assistant.id}`;
     checkbox.value = assistant.id;
     checkbox.checked = visibleSet.has(assistant.id); // Set initial state from current visible IDs
+    checkbox.dataset.assistantId = assistant.id; // Add ID for consistency if needed elsewhere
 
     // *** Add event listener to update state immediately on change ***
     checkbox.addEventListener("change", (event) => {
@@ -939,9 +945,30 @@ function populateAssistantEditList(searchTerm: string = "") {
     label.htmlFor = checkbox.id;
     label.textContent =
       assistant.name || `Assistant (${assistant.id.substring(0, 6)}...)`;
+    label.className = "assistant-label"; // Add class for styling
+
+    // ** Create container for actions **
+    const actionsDiv = document.createElement("div");
+    actionsDiv.className = "assistant-actions";
+
+    // ** Create Edit Link **
+    const editLink = document.createElement("span");
+    editLink.textContent = "Edit";
+    editLink.className = "edit-link action-link";
+    editLink.dataset.assistantId = assistant.id;
+
+    // ** Create Delete Link **
+    const deleteLink = document.createElement("span");
+    deleteLink.textContent = "Delete";
+    deleteLink.className = "delete-link action-link";
+    deleteLink.dataset.assistantId = assistant.id;
+
+    actionsDiv.appendChild(editLink);
+    actionsDiv.appendChild(deleteLink);
 
     div.appendChild(checkbox);
     div.appendChild(label);
+    div.appendChild(actionsDiv); // Add actions to the item div
     assistantListContainer.appendChild(div);
   });
 }
@@ -1128,7 +1155,7 @@ function setupEventListeners() {
   editInstructionsLink.addEventListener("click", showInstructionEditView);
   editAssistantInstructionsLink.addEventListener(
     "click",
-    showAssistantInstructionEditView
+    () => showAssistantInstructionEditView() // Call without ID uses dropdown
   );
   regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
   regenInstructionsInput.addEventListener("input", handleRegenInstructionInput);
@@ -2032,6 +2059,113 @@ async function handleCreateAssistant() {
     }
     updateStatus(errorMsg, true);
     alert(`Failed to create assistant: ${errorMsg}`); // Also show alert
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// ** Add delegated event listener setup **
+function setupAssistantListActionListener() {
+  assistantListContainer.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const assistantId = target.dataset.assistantId;
+
+    if (!assistantId) return; // Clicked somewhere else
+
+    if (target.classList.contains("edit-link")) {
+      handleEditAssistantClick(assistantId);
+    } else if (target.classList.contains("delete-link")) {
+      handleDeleteAssistantClick(assistantId);
+    }
+  });
+}
+
+// ** Handler for clicking the Edit link on an assistant **
+async function handleEditAssistantClick(assistantId: string) {
+  console.log(`[Action] Edit clicked for assistant: ${assistantId}`);
+
+  // Find the assistant to ensure it exists (optional, but good practice)
+  const assistantExists = allAssistants.some((a) => a.id === assistantId);
+  if (!assistantExists) {
+    console.error(
+      `[Edit Assistant] Assistant with ID ${assistantId} not found in local list.`
+    );
+    alert("Could not find the selected assistant to edit.");
+    return;
+  }
+
+  // Navigate to the assistant instruction edit view, passing the ID directly
+  await showAssistantInstructionEditView(assistantId);
+}
+
+// ** Handler for clicking the Delete link on an assistant **
+async function handleDeleteAssistantClick(assistantId: string) {
+  console.log(`[Action] Delete clicked for assistant: ${assistantId}`);
+
+  if (!openAIApiKey) {
+    alert("API Key not set. Cannot delete assistant.");
+    return;
+  }
+
+  const assistant = allAssistants.find((a) => a.id === assistantId);
+  const assistantName =
+    assistant?.name || `ID: ${assistantId.substring(0, 6)}...`;
+
+  // Confirm deletion
+  const confirmed = window.confirm(
+    `Are you sure you want to delete the assistant "${assistantName}"? This cannot be undone.`
+  );
+  if (!confirmed) {
+    console.log("[Delete Assistant] User cancelled deletion.");
+    return;
+  }
+
+  showSpinner(true);
+  updateStatus(`Deleting assistant "${assistantName}"...`, false);
+
+  try {
+    // Call OpenAI API to delete
+    const response = await fetchOpenAI<any>( // Use generic type or specific if available
+      `/assistants/${assistantId}`,
+      openAIApiKey,
+      { method: "DELETE" }
+    );
+
+    console.log("[Delete Assistant] API Response:", response);
+    // OpenAI delete endpoint returns { deleted: true, id: ..., object: 'assistant.deleted' } on success
+    if (!response || !response.deleted) {
+      throw new Error("API did not confirm deletion.");
+    }
+
+    console.log(
+      `[Delete Assistant] Assistant ${assistantId} deleted successfully via API.`
+    );
+
+    // Remove from local state
+    allAssistants = allAssistants.filter((a) => a.id !== assistantId);
+    visibleAssistantIds = visibleAssistantIds.filter(
+      (id) => id !== assistantId
+    );
+
+    // Update storage
+    await chrome.storage.local.set({
+      [CACHED_ASSISTANTS_KEY]: allAssistants,
+      [VISIBLE_ASSISTANTS_STORAGE_KEY]: visibleAssistantIds,
+    });
+    console.log("[Delete Assistant] Updated local cache and visible IDs.");
+
+    // Refresh the list view and the main dropdown
+    populateAssistantEditList(assistantSearchInput.value);
+    populateAssistantDropdown();
+    updateStatus(`Assistant "${assistantName}" deleted successfully.`, false);
+  } catch (error) {
+    console.error("[Delete Assistant] Error deleting assistant:", error);
+    let errorMsg = `Failed to delete assistant "${assistantName}".`;
+    if (error instanceof Error) {
+      errorMsg = `Error: ${error.message}`;
+    }
+    updateStatus(errorMsg, true);
+    alert(errorMsg); // Show alert on error
   } finally {
     showSpinner(false);
   }
