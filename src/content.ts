@@ -5,6 +5,16 @@ console.log("Content script loaded on Gmail.");
 let debounceTimer: number | null = null;
 const DEBOUNCE_DELAY = 500; // ms delay after DOM change before triggering extraction
 
+// --- Sync State ---
+let isUpdatingGmailFromSidePanel = false;
+const SYNC_LISTENER_ATTR = "data-sidepanel-sync-listener-attached";
+
+// --- Gmail Compose Box Selectors ---
+const GMAIL_COMPOSE_BOX_SELECTOR_MAIN =
+  'div[aria-label="Message Body"][role="textbox"][contenteditable="true"]'; // For new emails / inline replies
+const GMAIL_COMPOSE_BOX_SELECTOR_POPOUT =
+  'div[aria-label="Message body"][role="textbox"][contenteditable="true"]'; // For pop-out compose windows
+
 // --- Utility Functions ---
 /** Sleep helper function */
 function sleep(ms: number): Promise<void> {
@@ -162,7 +172,7 @@ const observerCallback: MutationCallback = (mutationsList, _observer) => {
   // Check if the mutations likely indicate a new email view
   // This is heuristic - look for addition of nodes, specific class changes etc.
   // A simple check: look for addition of the main thread container or message nodes
-  let relevantChange = false;
+  let relevantChangeForEmailExtraction = false;
   for (const mutation of mutationsList) {
     if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
       for (const node of mutation.addedNodes) {
@@ -173,24 +183,28 @@ const observerCallback: MutationCallback = (mutationsList, _observer) => {
             node.matches("div.aeF") ||
             node.querySelector("div.ii.gt")
           ) {
-            relevantChange = true;
+            relevantChangeForEmailExtraction = true;
             break;
           }
         }
       }
     }
     // Add more sophisticated checks if needed (e.g., attribute changes on specific elements)
-    if (relevantChange) break;
+    if (relevantChangeForEmailExtraction) break;
   }
 
-  if (relevantChange) {
-    console.log("Relevant DOM change detected, scheduling extraction...");
+  if (relevantChangeForEmailExtraction) {
+    console.log("Relevant DOM change detected, scheduling email extraction...");
     // Debounce the extraction call
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
     }
     debounceTimer = setTimeout(triggerExtractionAndUpdate, DEBOUNCE_DELAY);
   }
+
+  // Always try to setup listener for compose box on any mutation,
+  // as compose boxes can appear independently of main email thread changes.
+  setupComposeBoxListener();
 };
 
 // Start observing when the content script loads
@@ -298,6 +312,59 @@ function isReplyFieldOpen(): boolean {
     document.querySelector(replyBoxSelector) ||
     document.querySelector(fallbackSelector)
   );
+}
+
+// --- Get Active Gmail Compose Box ---
+function getActiveGmailComposeBox(): HTMLElement | null {
+  let composeBox = document.querySelector<HTMLElement>(
+    GMAIL_COMPOSE_BOX_SELECTOR_POPOUT
+  );
+  if (composeBox && isElementVisible(composeBox)) {
+    return composeBox;
+  }
+  composeBox = document.querySelector<HTMLElement>(
+    GMAIL_COMPOSE_BOX_SELECTOR_MAIN
+  );
+  if (composeBox && isElementVisible(composeBox)) {
+    return composeBox;
+  }
+  return null;
+}
+
+// Helper to check if an element is visible
+function isElementVisible(el: HTMLElement): boolean {
+  return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+
+// --- Setup Listener for Gmail Compose Box ---
+function setupComposeBoxListener() {
+  const composeBox = getActiveGmailComposeBox();
+  if (composeBox && !composeBox.getAttribute(SYNC_LISTENER_ATTR)) {
+    console.log("Setting up input listener for Gmail compose box:", composeBox);
+    composeBox.setAttribute(SYNC_LISTENER_ATTR, "true");
+
+    composeBox.addEventListener("input", (event) => {
+      if (isUpdatingGmailFromSidePanel) {
+        // This change came from the side panel, so don't send it back.
+        // Reset flag for next manual input.
+        // isUpdatingGmailFromSidePanel = false; // Resetting here can be problematic if event is not immediately processed.
+        // console.log("Gmail compose box updated by side panel, not syncing back.");
+        return;
+      }
+      // If the event is a programmatic one (e.g. from setting innerText and dispatching event),
+      // and we just set isUpdatingGmailFromSidePanel to true, we need a way to reset it.
+      // The most reliable way is to reset it *after* the programmatic change is done.
+
+      const target = event.target as HTMLElement;
+      console.log(
+        "Manual input detected in Gmail compose box, sending to side panel."
+      );
+      chrome.runtime.sendMessage({
+        action: "syncReplyFromGmail",
+        text: target.innerText,
+      });
+    });
+  }
 }
 
 // --- Message Listener ---
@@ -416,6 +483,40 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       });
     }
     return true; // Keep message channel open
+  }
+
+  if (message.action === "syncReplyToGmail") {
+    console.log("Received syncReplyToGmail from side panel:", message.text);
+    const composeBox = getActiveGmailComposeBox();
+    if (composeBox) {
+      isUpdatingGmailFromSidePanel = true;
+      // Check if the content is actually different to prevent unnecessary updates/cursor jumps
+      if (composeBox.innerText !== message.text) {
+        composeBox.innerText = message.text;
+        // Dispatch an input event so Gmail recognizes the change (e.g., for enabling Send button)
+        const inputEvent = new Event("input", {
+          bubbles: true,
+          cancelable: true,
+        });
+        composeBox.dispatchEvent(inputEvent);
+        console.log(
+          "Dispatched input event after setting innerText from side panel sync."
+        );
+      } else {
+        console.log(
+          "Gmail compose box already matches side panel, no update needed."
+        );
+      }
+      // Reset the flag after a very short delay, allowing the input event to be processed
+      // by its own listener, which should see the flag as true and not propagate.
+      setTimeout(() => {
+        isUpdatingGmailFromSidePanel = false;
+      }, 0);
+    } else {
+      console.warn("syncReplyToGmail: No active compose box found.");
+    }
+    sendResponse({ success: true, received: true });
+    return true; // Indicate async response potentially
   }
 
   // Default for unhandled messages

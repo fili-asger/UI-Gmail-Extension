@@ -239,6 +239,7 @@ let currentThreadId: string | null = null;
 let currentActionButtonState: "generate" | "insert" | "regenerate" = "generate"; // Track button state
 let savedInstructions: string[] = ["Accept", "Reject", "Negotiate"]; // Default/example instructions
 let currentEditingAssistantId: string | null = null;
+let isUpdatingReplyTextareaFromContentScript = false;
 
 // --- Constants ---
 const VISIBLE_ASSISTANTS_STORAGE_KEY = "visible_assistant_ids";
@@ -1168,10 +1169,40 @@ function setupEventListeners() {
   instructionSelect.addEventListener("change", () => {
     if (currentReply !== null) {
       console.log(
-        "Instruction changed after reply generated, resetting state."
+        "Instruction changed after reply generated. Switching to regenerate mode."
       );
-      resetReplyState();
+      // 1. Change the button to "Regenerate Reply"
+      setMainActionButtonState("regenerate");
+      // 2. Ensure custom regeneration input is hidden if it was visible,
+      //    as the primary source of new instruction is the dropdown itself.
+      if (regenerationControls) regenerationControls.style.display = "none";
+      // 3. The existing email context, assistant selection, and generated reply text
+      //    should remain as they are. currentThreadId also remains.
+      //    The new instruction will be picked up from instructionSelect.value
+      //    or customInstructionInput when handleMainActionButtonClick is triggered.
+    } else {
+      // If no reply was generated yet, no special action is needed when instruction changes.
+      // The new instruction will simply be used if "Generate Reply" is clicked.
+      console.log(
+        "Instruction changed before any reply generated. New instruction will be used on next generation."
+      );
     }
+  });
+
+  replyOutputTextarea.addEventListener("input", () => {
+    if (isUpdatingReplyTextareaFromContentScript) {
+      return; // Prevent loop if update is from content script
+    }
+    currentReply = replyOutputTextarea.value;
+    // Send update to content script
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0] && tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: "syncReplyToGmail",
+          text: currentReply,
+        });
+      }
+    });
   });
 
   // Custom Instruction Toggle
@@ -1264,6 +1295,31 @@ function setupEventListeners() {
       sendResponse({ success: true });
       return false; // Indicate sync response
     }
+
+    if (message.action === "syncReplyFromGmail") {
+      console.log("Received syncReplyFromGmail:", message.text);
+      if (replyOutputTextarea) {
+        isUpdatingReplyTextareaFromContentScript = true;
+        replyOutputTextarea.value = message.text;
+        currentReply = message.text; // Keep internal state consistent
+        // If the reply section wasn't visible, show it
+        if (
+          generatedReplySection &&
+          generatedReplySection.style.display === "none"
+        ) {
+          showGeneratedReply();
+          // Potentially adjust button state if needed, e.g., to "Insert"
+          // if currentActionButtonState was 'generate' and a reply now exists.
+          if (currentActionButtonState === "generate" && message.text) {
+            setMainActionButtonState("insert");
+          }
+        }
+        isUpdatingReplyTextareaFromContentScript = false;
+      }
+      sendResponse({ success: true, received: true }); // Acknowledge
+      return true;
+    }
+
     if (message.action === "execute-quick-reply-flow") {
       console.log("Received quick reply flow trigger:", message);
       if (message.error) {
@@ -1375,13 +1431,6 @@ async function handleGenerateReply(
 ) {
   const selectedAssistantId = assistantSelect.value;
 
-  const regenerationInstructions = regenInstructionsInput.value.trim();
-
-  if (!isRegeneration && !currentEmailContent) {
-    updateStatus("Please get the email content first.", true);
-    alert("Please get the email content first.");
-    return;
-  }
   if (!openAIApiKey) {
     updateStatus("OpenAI API Key is not set. Please save it first.", true);
     alert("OpenAI API Key is not set. Please save it first.");
@@ -1392,11 +1441,10 @@ async function handleGenerateReply(
     alert("Please select an assistant first.");
     return;
   }
-  if (isRegeneration && !currentThreadId) {
-    updateStatus("Cannot regenerate, original thread ID not found.", true);
-    alert(
-      "Cannot regenerate, original thread ID not found. Please generate a reply first."
-    );
+  // currentEmailContent is needed for both initial generation and providing context for regeneration.
+  if (!currentEmailContent) {
+    updateStatus("Email content not available. Please refresh context.", true);
+    alert("Email content not available. Please refresh context.");
     return;
   }
 
@@ -1404,52 +1452,127 @@ async function handleGenerateReply(
   setMainActionButtonState(isRegeneration ? "regenerate" : "generate", true);
   mainActionBtn.classList.add("loading");
   showSpinner(true);
-  replyOutputTextarea.value = "";
+  // DO NOT clear replyOutputTextarea.value here if isRegeneration is true,
+  // as we need its content for draftContent.
+  // currentReply will be nulled out before API call, and textarea updated on new reply or error.
   currentReply = null;
 
-  let threadIdToUse = currentThreadId;
+  console.log("[Debug] Previous currentThreadId:", currentThreadId);
+  let threadIdToUse: string | null = null;
 
   try {
     if (isRegeneration) {
-      if (!threadIdToUse)
-        throw new Error("Cannot regenerate without thread ID.");
-      console.log("Using existing thread for regeneration:", threadIdToUse);
-      const userMessage = regenerationInstructions
-        ? `Regenerate the previous reply with the following instructions: ${regenerationInstructions}`
-        : "Please regenerate the previous reply.";
-      await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
-        method: "POST",
-        body: JSON.stringify({ role: "user", content: userMessage }),
-      });
-      console.log("Added regeneration instruction message.");
-    } else {
-      const thread = await fetchOpenAI<{ id: string }>(
+      const draftContent = replyOutputTextarea.value.trim(); // Read before clearing
+      let userMessageForNewThread: string;
+
+      if (!instruction && !draftContent) {
+        // This case should ideally be prevented by UI logic, but as a fallback:
+        updateStatus(
+          "Nothing to regenerate. Please provide a draft or an instruction.",
+          true
+        );
+        alert(
+          "Nothing to regenerate. Please provide a draft or an instruction."
+        );
+        setMainActionButtonState("regenerate"); // Reset button
+        mainActionBtn.classList.remove("loading");
+        showSpinner(false);
+        return;
+      }
+
+      userMessageForNewThread = `You are an AI assistant helping to refine an email reply.
+To provide the best response, please consider the ORIGINAL EMAIL THREAD for context.
+Your primary task is to revise the DRAFT REPLY based on the NEW INSTRUCTION.
+
+NEW INSTRUCTION:
+"""
+${
+  instruction ||
+  "No specific new instruction was provided. Please improve or refine the draft."
+}
+"""
+
+DRAFT REPLY (this is the text to be revised):
+"""
+${draftContent || "The previous draft was empty."}
+"""
+
+ORIGINAL EMAIL THREAD (for context only, do not reply to this directly, focus on revising the DRAFT REPLY):
+"""
+${currentEmailContent}
+"""
+
+Please provide only the revised reply based on the NEW INSTRUCTION and the DRAFT REPLY.`;
+
+      console.log("Regeneration: Creating a new thread.");
+      const newThread = await fetchOpenAI<{ id: string }>(
         "/threads",
         openAIApiKey!,
-        { method: "POST" }
+        {
+          method: "POST",
+        }
       );
-      threadIdToUse = thread.id;
+      threadIdToUse = newThread.id;
       currentThreadId = threadIdToUse;
-      console.log("Created new thread:", threadIdToUse);
-      await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
-        method: "POST",
-        body: JSON.stringify({ role: "user", content: currentEmailContent }),
-      });
-      console.log("Added original email content message.");
-    }
+      console.log("Regeneration: New thread created:", threadIdToUse);
+      console.log(
+        "Regeneration: User message for new thread:\n",
+        userMessageForNewThread
+      );
 
-    if (instruction) {
-      console.log("Adding selected/custom instruction message:", instruction);
       await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
         method: "POST",
         body: JSON.stringify({
           role: "user",
-          content: `Apply the following instruction: ${instruction}`,
+          content: userMessageForNewThread,
         }),
       });
+      console.log("Regeneration: Added user message to new thread.");
+    } else {
+      // Initial Generation
+      replyOutputTextarea.value = ""; // Clear for initial generation display
+      console.log("Initial Generation: Creating a new thread.");
+      const newThread = await fetchOpenAI<{ id: string }>(
+        "/threads",
+        openAIApiKey!,
+        {
+          method: "POST",
+        }
+      );
+      threadIdToUse = newThread.id;
+      currentThreadId = threadIdToUse;
+      console.log("Initial Generation: New thread created:", threadIdToUse);
+
+      if (!currentEmailContent) {
+        throw new Error("currentEmailContent is null for initial generation.");
+      }
+      await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
+        method: "POST",
+        body: JSON.stringify({ role: "user", content: currentEmailContent }),
+      });
+      console.log("Initial Generation: Added original email content message.");
+
+      if (instruction) {
+        console.log(
+          "Initial Generation: Adding selected/custom instruction message:",
+          instruction
+        );
+        const initialInstructionMessage = `Apply the following instruction: ${instruction}`;
+        await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
+          method: "POST",
+          body: JSON.stringify({
+            role: "user",
+            content: initialInstructionMessage,
+          }),
+        });
+      }
     }
 
-    console.log("Starting assistant run...");
+    if (!threadIdToUse) {
+      throw new Error("Thread ID not established before starting run.");
+    }
+
+    console.log(`Starting assistant run on thread ${threadIdToUse}...`);
     let runBody: { assistant_id: string } = {
       assistant_id: selectedAssistantId,
     };
@@ -1506,7 +1629,7 @@ async function handleGenerateReply(
       latestAssistantMessage.content[0]?.type === "text"
     ) {
       currentReply = latestAssistantMessage.content[0].text.value;
-      replyOutputTextarea.value = currentReply;
+      replyOutputTextarea.value = currentReply; // Update textarea with the new reply
       showGeneratedReply();
       updateStatus(isRegeneration ? "Reply regenerated." : "Reply generated.");
 
@@ -1534,7 +1657,7 @@ async function handleGenerateReply(
     alert(errorMessage);
     updateStatus(errorMessage, true);
     currentReply = null;
-    replyOutputTextarea.value = errorMessage;
+    if (replyOutputTextarea) replyOutputTextarea.value = errorMessage;
     setMainActionButtonState(isRegeneration ? "regenerate" : "generate");
   } finally {
     mainActionBtn.classList.remove("loading");
@@ -1862,16 +1985,60 @@ async function handleMainActionButtonClick() {
     `Main action button clicked. Current state: ${currentActionButtonState}`
   );
 
-  let instructionToSend: string | null = null;
-  if (customInstructionInput.style.display !== "none") {
-    instructionToSend = customInstructionInput.value.trim();
-    console.log("Using custom instruction:", instructionToSend);
-  } else {
-    instructionToSend = instructionSelect.value;
-    console.log("Using selected instruction:", instructionToSend);
+  let instructionForOperation: string | null = null;
+
+  if (currentActionButtonState === "regenerate") {
+    // For regeneration, prioritize the dedicated regeneration input field if it's visible and has content.
+    if (
+      regenerationControls &&
+      regenerationControls.style.display !== "none" &&
+      regenInstructionsInput.value.trim()
+    ) {
+      instructionForOperation = regenInstructionsInput.value.trim();
+      console.log(
+        "Using 'Regeneration Instructions' input for instruction:",
+        instructionForOperation
+      );
+    } else {
+      // Fallback for regeneration:
+      // This covers:
+      // 1. Regeneration triggered by changing the main instruction dropdown (regenControls are hidden).
+      // 2. Regeneration controls are visible, but the regenInstructionsInput is empty.
+      // In these cases, the instruction comes from the main dropdown or custom input.
+      if (customInstructionInput.style.display !== "none") {
+        instructionForOperation = customInstructionInput.value.trim();
+      } else {
+        instructionForOperation = instructionSelect.value;
+      }
+
+      if (instructionForOperation && instructionForOperation.trim() === "") {
+        instructionForOperation = null; // Treat empty string from dropdown/custom as no instruction
+      }
+      console.log(
+        "Using main dropdown/custom input for regeneration instruction (or no instruction if empty):",
+        instructionForOperation
+      );
+    }
+  } else if (currentActionButtonState === "generate") {
+    // For initial generation, always use main dropdown/custom input
+    if (customInstructionInput.style.display !== "none") {
+      instructionForOperation = customInstructionInput.value.trim();
+    } else {
+      instructionForOperation = instructionSelect.value;
+    }
+
+    if (instructionForOperation && instructionForOperation.trim() === "") {
+      instructionForOperation = null; // Treat empty string as no instruction
+    }
+    console.log(
+      "Using main dropdown/custom input for generation instruction (or no instruction if empty):",
+      instructionForOperation
+    );
   }
-  if (!instructionToSend) {
-    instructionToSend = null;
+
+  // Ensure instructionForOperation is explicitly null if effectively empty
+  if (instructionForOperation && instructionForOperation.trim() === "") {
+    instructionForOperation = null;
   }
 
   switch (currentActionButtonState) {
@@ -1879,7 +2046,7 @@ async function handleMainActionButtonClick() {
     case "regenerate":
       await handleGenerateReply(
         currentActionButtonState === "regenerate",
-        instructionToSend
+        instructionForOperation // Pass the correctly sourced instruction
       );
       break;
     case "insert":
