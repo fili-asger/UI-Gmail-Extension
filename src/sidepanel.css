@@ -929,3 +929,91 @@ select.form-input {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px var(--primary-color);
 }
+
+/* Modal Styles */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1000; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto; /* 10% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more specific */
+  max-width: 500px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.close-button {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+  color: black;
+  text-decoration: none;
+}
+
+.modal-body {
+  padding-top: 10px;
+}
+
+.modal-text-display {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+  min-height: 60px; /* Adjust as needed */
+  max-height: 150px; /* Adjust as needed */
+  overflow-y: auto;
+  white-space: pre-wrap; /* Preserve line breaks */
+  word-wrap: break-word;
+  font-size: 0.9em;
+  margin-bottom: 15px;
+}
+
+#translated-reply-modal-output {
+  resize: vertical;
+}
+
+/* Ensure status messages in modal look okay */
+#translate-modal-status.status-message {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+#translate-modal-status.status-message.error {
+  background-color: #ffebee; /* Light red for errors */
+  color: #c62828; /* Darker red text */
+  border: 1px solid #ef9a9a;
+}

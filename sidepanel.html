@@ -104,6 +104,13 @@
             >
               Shorter
             </button>
+            <button
+              id="translate-reply-btn"
+              class="link-button"
+              style="margin-left: 8px"
+            >
+              Translate
+            </button>
           </div>
         </div>
         <textarea
@@ -296,6 +303,68 @@
         </button>
       </div>
       <div id="instruction-edit-status" class="status-message"></div>
+    </div>
+
+    <!-- Translation Modal -->
+    <div id="translate-reply-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Translate Reply</h2>
+          <button id="close-translate-modal-btn" class="close-button">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Original Text:</label>
+            <div
+              id="original-reply-modal-text"
+              class="modal-text-display"
+            ></div>
+          </div>
+          <div class="form-group">
+            <label for="translate-language-select">Translate to:</label>
+            <select id="translate-language-select" class="form-input">
+              <option value="English" selected>English</option>
+              <option value="Spanish">Spanish</option>
+              <option value="French">French</option>
+              <option value="German">German</option>
+              <option value="Chinese">Chinese (Simplified)</option>
+              <option value="Japanese">Japanese</option>
+              <option value="Korean">Korean</option>
+              <option value="Portuguese">Portuguese</option>
+              <option value="Russian">Russian</option>
+              <option value="Arabic">Arabic</option>
+              <option value="Hindi">Hindi</option>
+              <!-- Add more languages as needed -->
+            </select>
+          </div>
+          <div class="form-group">
+            <button
+              id="confirm-translate-modal-btn"
+              class="primary-button"
+              style="width: 100%"
+            >
+              Translate
+            </button>
+          </div>
+          <div class="form-group">
+            <label for="translated-reply-modal-output">Translated Text:</label>
+            <textarea
+              id="translated-reply-modal-output"
+              class="form-input"
+              rows="6"
+              readonly
+              placeholder="Translation will appear here..."
+            ></textarea>
+          </div>
+        </div>
+        <div
+          id="translate-modal-status"
+          class="status-message"
+          style="margin-top: 10px"
+        ></div>
+      </div>
     </div>
 
     <!-- Global Spinner -->

@@ -110,6 +110,9 @@ const regenerateLinkBtn = document.getElementById(
 ) as HTMLButtonElement;
 const makeShorterBtn = document.getElementById(
   "make-shorter-btn"
+) as HTMLButtonElement;
+const translateReplyBtn = document.getElementById(
+  "translate-reply-btn"
 ) as HTMLButtonElement; // Added this line
 const replyOutputTextarea = document.getElementById(
   "reply-output"
@@ -239,6 +242,29 @@ const customInstructionInput = document.getElementById(
 const toggleCustomInstructionButton = document.getElementById(
   "toggle-custom-instruction"
 ) as HTMLButtonElement;
+
+// Translation Modal Elements
+const translateReplyModal = document.getElementById(
+  "translate-reply-modal"
+) as HTMLDivElement;
+const originalReplyModalText = document.getElementById(
+  "original-reply-modal-text"
+) as HTMLDivElement;
+const translateLanguageSelect = document.getElementById(
+  "translate-language-select"
+) as HTMLSelectElement;
+const confirmTranslateModalBtn = document.getElementById(
+  "confirm-translate-modal-btn"
+) as HTMLButtonElement;
+const translatedReplyModalOutput = document.getElementById(
+  "translated-reply-modal-output"
+) as HTMLTextAreaElement;
+const closeTranslateModalBtn = document.getElementById(
+  "close-translate-modal-btn"
+) as HTMLButtonElement;
+const translateModalStatus = document.getElementById(
+  "translate-modal-status"
+) as HTMLDivElement;
 
 // State Variables
 let currentEmailContent: string | null = null;
@@ -578,13 +604,18 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
 // Helper to show/hide reply sections
 function showGeneratedReply() {
   if (generatedReplySection) generatedReplySection.style.display = "flex";
-  if (makeShorterBtn) makeShorterBtn.style.display = ""; // Show shorter button
+  if (makeShorterBtn) makeShorterBtn.style.display = "";
+  if (translateReplyBtn) translateReplyBtn.style.display = ""; // Show translate button
   if (regenerationControls) regenerationControls.style.display = "none";
 }
 
 function hideGeneratedReply() {
   if (generatedReplySection) generatedReplySection.style.display = "none";
-  if (makeShorterBtn) makeShorterBtn.style.display = "none"; // Hide shorter button
+  if (makeShorterBtn) makeShorterBtn.style.display = "none";
+  if (translateReplyBtn) translateReplyBtn.style.display = "none"; // Hide translate button
+  if (translateReplyModal && translateReplyModal.style.display !== "none") {
+    hideTranslateModal(); // Also hide modal if open
+  }
   if (regenerationControls) regenerationControls.style.display = "none";
   if (replyOutputTextarea) replyOutputTextarea.value = "";
   if (regenInstructionsInput) regenInstructionsInput.value = "";
@@ -755,7 +786,15 @@ async function initialize() {
       !createAssistantBtn ||
       !assistantNameInput ||
       !editingAssistantIdSpan || // Added check for new element
-      !editingAssistantLink // Added check for new element
+      !editingAssistantLink || // Added check for new element
+      !translateReplyBtn || // New button
+      !translateReplyModal || // New modal elements
+      !originalReplyModalText ||
+      !translateLanguageSelect ||
+      !confirmTranslateModalBtn ||
+      !translatedReplyModalOutput ||
+      !closeTranslateModalBtn ||
+      !translateModalStatus
     ) {
       console.error(
         "One or more essential UI elements not found in sidepanel.html"
@@ -1437,6 +1476,19 @@ function setupEventListeners() {
   });
 
   console.log("[Event] Event listeners setup complete.");
+
+  if (translateReplyBtn) {
+    translateReplyBtn.addEventListener("click", showTranslateModal);
+  }
+  if (closeTranslateModalBtn) {
+    closeTranslateModalBtn.addEventListener("click", hideTranslateModal);
+  }
+  if (confirmTranslateModalBtn) {
+    confirmTranslateModalBtn.addEventListener(
+      "click",
+      handleConfirmTranslateClick
+    );
+  }
 }
 
 // --- Action Handlers ---
@@ -2540,5 +2592,128 @@ Please provide only the shortened version of the reply.`;
   } finally {
     mainActionBtn.classList.remove("loading");
     showSpinner(false);
+  }
+}
+
+// --- Modal Functions ---
+function showTranslateModal() {
+  if (
+    !translateReplyModal ||
+    !originalReplyModalText ||
+    !translatedReplyModalOutput ||
+    !translateLanguageSelect ||
+    !translateModalStatus
+  )
+    return;
+
+  const originalText = replyOutputTextarea.value.trim();
+  if (!originalText) {
+    alert("No reply text to translate.");
+    return;
+  }
+
+  originalReplyModalText.textContent = originalText;
+  translatedReplyModalOutput.value = "";
+  translateLanguageSelect.value = "English"; // Default language
+  translateModalStatus.textContent = "";
+  translateModalStatus.className = "status-message";
+  translateReplyModal.style.display = "block";
+}
+
+function hideTranslateModal() {
+  if (translateReplyModal) {
+    translateReplyModal.style.display = "none";
+  }
+}
+
+function updateTranslateModalStatus(message: string, isError: boolean = false) {
+  if (translateModalStatus) {
+    translateModalStatus.textContent = message;
+    translateModalStatus.className = `status-message ${isError ? "error" : ""}`;
+  }
+}
+
+// --- Translation Logic ---
+async function handleConfirmTranslateClick() {
+  if (!openAIApiKey) {
+    updateTranslateModalStatus(
+      "API Key not set. Please configure it in Settings.",
+      true
+    );
+    return;
+  }
+  if (
+    !originalReplyModalText ||
+    !translateLanguageSelect ||
+    !translatedReplyModalOutput ||
+    !translateModalStatus
+  ) {
+    console.error(
+      "Translation modal elements not found for handleConfirmTranslateClick"
+    );
+    return;
+  }
+
+  const originalText = originalReplyModalText.textContent;
+  const targetLanguage = translateLanguageSelect.value;
+
+  if (!originalText || originalText.trim() === "") {
+    updateTranslateModalStatus(
+      "Original text is empty, nothing to translate.",
+      true
+    );
+    return;
+  }
+  if (!targetLanguage) {
+    updateTranslateModalStatus("Please select a target language.", true);
+    return;
+  }
+
+  updateTranslateModalStatus(`Translating to ${targetLanguage}...`, false);
+  translatedReplyModalOutput.value = "Translating...";
+  confirmTranslateModalBtn.disabled = true;
+  // Consider adding a small spinner inside the modal if showSpinner(true) is too broad
+
+  const prompt = `Translate the following text into ${targetLanguage}. Provide only the translated text and nothing else:
+
+"""
+${originalText}
+"""
+`;
+
+  try {
+    const response = await fetchOpenAI<{
+      choices: { message: { content: string } }[];
+    }>("/chat/completions", openAIApiKey, {
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Using gpt-4o-mini as a capable default
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3, // Lower temperature for more direct translation
+      }),
+      headers: { "OpenAI-Beta": "" }, // No specific beta for chat completions here
+    });
+
+    if (
+      response.choices &&
+      response.choices.length > 0 &&
+      response.choices[0].message?.content
+    ) {
+      const translatedText = response.choices[0].message.content.trim();
+      translatedReplyModalOutput.value = translatedText;
+      updateTranslateModalStatus("Translation successful.", false);
+    } else {
+      throw new Error("Invalid response structure from translation API.");
+    }
+  } catch (error: any) {
+    console.error("Error during translation:", error);
+    let errorMsg = "Translation failed.";
+    if (error instanceof Error) {
+      errorMsg = `Translation error: ${error.message}`;
+    }
+    translatedReplyModalOutput.value = `Error: ${errorMsg}`;
+    updateTranslateModalStatus(errorMsg, true);
+  } finally {
+    confirmTranslateModalBtn.disabled = false;
   }
 }
