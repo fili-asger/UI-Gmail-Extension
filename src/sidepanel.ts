@@ -108,6 +108,9 @@ const generatedReplySection = document.getElementById(
 const regenerateLinkBtn = document.getElementById(
   "regenerate-link-btn"
 ) as HTMLButtonElement;
+const makeShorterBtn = document.getElementById(
+  "make-shorter-btn"
+) as HTMLButtonElement; // Added this line
 const replyOutputTextarea = document.getElementById(
   "reply-output"
 ) as HTMLTextAreaElement;
@@ -574,15 +577,15 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
 
 // Helper to show/hide reply sections
 function showGeneratedReply() {
-  if (generatedReplySection) generatedReplySection.style.display = "flex"; // Or 'block' if flex not needed
-  // Keep regen controls hidden initially
+  if (generatedReplySection) generatedReplySection.style.display = "flex";
+  if (makeShorterBtn) makeShorterBtn.style.display = ""; // Show shorter button
   if (regenerationControls) regenerationControls.style.display = "none";
 }
 
 function hideGeneratedReply() {
   if (generatedReplySection) generatedReplySection.style.display = "none";
+  if (makeShorterBtn) makeShorterBtn.style.display = "none"; // Hide shorter button
   if (regenerationControls) regenerationControls.style.display = "none";
-  // Optionally clear reply textarea and instructions
   if (replyOutputTextarea) replyOutputTextarea.value = "";
   if (regenInstructionsInput) regenInstructionsInput.value = "";
   currentReply = null;
@@ -1182,6 +1185,8 @@ function setupEventListeners() {
 
   if (regenerateLinkBtn)
     regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
+  if (makeShorterBtn)
+    makeShorterBtn.addEventListener("click", handleMakeShorterClick); // Added listener
   if (regenInstructionsInput)
     regenInstructionsInput.addEventListener(
       "input",
@@ -1726,6 +1731,7 @@ function handleRegenInstructionInput() {
 
 async function handleInsertReply() {
   currentReply = replyOutputTextarea.value.trim();
+  // console.log("[Insert Reply] Attempting to insert text:", currentReply); // Removed log
   if (!currentReply) {
     alert("There is no reply text to insert.");
     return;
@@ -2379,6 +2385,160 @@ async function handleDeleteAssistantClick(assistantId: string) {
     updateStatus(errorMsg, true);
     alert(errorMsg); // Show alert on error
   } finally {
+    showSpinner(false);
+  }
+}
+
+// *** Add the new handler function for making text shorter ***
+async function handleMakeShorterClick() {
+  const originalReplyText = replyOutputTextarea.value.trim();
+  const selectedAssistantId = assistantSelect.value;
+
+  if (!openAIApiKey) {
+    alert("OpenAI API Key is not set. Please save it first.");
+    return;
+  }
+  if (!selectedAssistantId) {
+    alert(
+      "Please select an assistant first. The active assistant will be used to shorten the text."
+    );
+    return;
+  }
+  if (!originalReplyText) {
+    alert("There is no generated reply to make shorter.");
+    return;
+  }
+
+  updateStatus("Making reply shorter...", false);
+  setMainActionButtonState("generate", true); // Disable main button, or a new state like "processing"
+  mainActionBtn.classList.add("loading");
+  showSpinner(true);
+  currentReply = null; // Reset current reply before new API call
+
+  const userPrompt = `You are an AI assistant helping to refine an email reply.
+Your task is to make the following DRAFT REPLY significantly shorter while preserving its core meaning and tone.
+
+DRAFT REPLY (this is the text to be shortened):
+"""
+${originalReplyText}
+"""
+
+Please provide only the shortened version of the reply.`;
+
+  let threadIdToUse: string | null = null;
+
+  try {
+    console.log("Make Shorter: Creating a new thread.");
+    const newThread = await fetchOpenAI<{ id: string }>(
+      "/threads",
+      openAIApiKey!,
+      {
+        method: "POST",
+      }
+    );
+    threadIdToUse = newThread.id;
+    console.log("Make Shorter: New thread created:", threadIdToUse);
+
+    await fetchOpenAI(`/threads/${threadIdToUse}/messages`, openAIApiKey!, {
+      method: "POST",
+      body: JSON.stringify({
+        role: "user",
+        content: userPrompt,
+      }),
+    });
+    console.log("Make Shorter: Added user prompt message to new thread.");
+
+    if (!threadIdToUse) {
+      throw new Error("Thread ID not established before starting run.");
+    }
+
+    console.log(
+      `Starting assistant run on thread ${threadIdToUse} to make text shorter...`
+    );
+    const run = await fetchOpenAI<OpenAPIRun>(
+      `/threads/${threadIdToUse}/runs`,
+      openAIApiKey!,
+      {
+        method: "POST",
+        body: JSON.stringify({ assistant_id: selectedAssistantId }),
+      }
+    );
+    const runId = run.id;
+    console.log("Created run for shortening:", runId);
+
+    let runStatus: OpenAPIRun;
+    let attempts = 0;
+    const maxAttempts = 20;
+    do {
+      await sleep(1500);
+      runStatus = await fetchOpenAI<OpenAPIRun>(
+        `/threads/${threadIdToUse}/runs/${runId}`,
+        openAIApiKey!,
+        { method: "GET" }
+      );
+      console.log("Shortening run status:", runStatus.status);
+      updateStatus(`Shortening... (${runStatus.status})`, false);
+      attempts++;
+    } while (
+      (runStatus.status === "queued" || runStatus.status === "in_progress") &&
+      attempts < maxAttempts
+    );
+
+    if (runStatus.status !== "completed") {
+      throw new Error(
+        `Shortening run failed or timed out. Final status: ${runStatus.status}`
+      );
+    }
+
+    const messagesResponse = await fetchOpenAI<OpenAPIMessageListResponse>(
+      `/threads/${threadIdToUse}/messages?order=asc`,
+      openAIApiKey!,
+      { method: "GET" }
+    );
+    console.log("Messages received after shortening run:", messagesResponse);
+
+    const assistantMessages = messagesResponse.data.filter(
+      (msg) => msg.role === "assistant"
+    );
+    const latestAssistantMessage =
+      assistantMessages[assistantMessages.length - 1];
+
+    if (
+      latestAssistantMessage &&
+      latestAssistantMessage.content[0]?.type === "text"
+    ) {
+      currentReply = latestAssistantMessage.content[0].text.value;
+      replyOutputTextarea.value = currentReply;
+      updateStatus("Reply made shorter.");
+
+      // Automatically insert the shortened reply into Gmail
+      console.log(
+        "Shortened reply generated, now attempting automatic insertion..."
+      );
+      await handleInsertReply(); // Call handleInsertReply here
+      // handleInsertReply will manage the main action button state (e.g., to "Inserted!")
+
+      // Ensure regeneration controls are hidden as this is a new reply context
+      if (regenerationControls) regenerationControls.style.display = "none";
+      if (regenInstructionsInput) regenInstructionsInput.value = "";
+    } else {
+      throw new Error(
+        "Could not find a valid assistant text reply after shortening request."
+      );
+    }
+  } catch (error) {
+    console.error("Error making reply shorter:", error);
+    let errorMessage = "Error making reply shorter.";
+    if (error instanceof Error) {
+      errorMessage = `Error: ${error.message}`;
+    }
+    alert(errorMessage);
+    updateStatus(errorMessage, true);
+    currentReply = originalReplyText; // Restore original reply on error
+    replyOutputTextarea.value = originalReplyText;
+    setMainActionButtonState("insert"); // Or original state before clicking shorter
+  } finally {
+    mainActionBtn.classList.remove("loading");
     showSpinner(false);
   }
 }
