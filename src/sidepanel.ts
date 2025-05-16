@@ -216,6 +216,14 @@ const assistantNameInput = document.getElementById(
   "assistant-name-input"
 ) as HTMLInputElement;
 
+// New elements for assistant ID and link
+const editingAssistantIdSpan = document.getElementById(
+  "editing-assistant-id"
+) as HTMLSpanElement;
+const editingAssistantLink = document.getElementById(
+  "editing-assistant-link"
+) as HTMLAnchorElement;
+
 // New elements
 const editAssistantInstructionsLink = document.getElementById(
   "edit-assistant-instructions-link"
@@ -427,7 +435,6 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
   const selectedAssistantId = assistantIdToEdit || assistantSelect.value;
 
   if (!selectedAssistantId) {
-    // This alert should now only trigger if called from main view with no selection
     alert("Please select an assistant from the dropdown first.");
     return;
   }
@@ -441,7 +448,9 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
     settingsView &&
     assistantEditView &&
     instructionEditView &&
-    assistantInstructionEditView
+    assistantInstructionEditView &&
+    editingAssistantIdSpan && // ensure new elements are checked
+    editingAssistantLink
   ) {
     mainContentView.classList.remove("active-view");
     settingsView.classList.remove("active-view");
@@ -457,77 +466,88 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
     assistantInstructionsTextarea.value = "";
     editingAssistantNameSpan.textContent = "Loading...";
     assistantNameInput.value = "";
-    assistantModelSelect.innerHTML = ""; // Clear previous models
-    assistantModelSelect.disabled = false; // Re-enable in case it was disabled by previous error
-    assistantInstructionsTextarea.disabled = false;
-    saveAssistantInstructionsBtn.disabled = true; // Disable save until loaded
+    // Reset new elements
+    editingAssistantIdSpan.textContent = "N/A";
+    editingAssistantLink.href = "#";
+
     currentEditingAssistantId = selectedAssistantId;
 
     try {
-      // Fetch assistant details and available models concurrently
       const [assistant, availableModels] = await Promise.all([
         fetchOpenAI<OpenAIAssistant>(
           `/assistants/${selectedAssistantId}`,
           openAIApiKey,
           { method: "GET" }
         ),
-        fetchAvailableModels(openAIApiKey), // Use the new function
+        fetchAvailableModels(openAIApiKey),
       ]);
 
       console.log("Fetched assistant details:", assistant);
       console.log("Fetched available models:", availableModels);
 
-      // Populate Model Dropdown
+      assistantModelSelect.innerHTML = "";
       availableModels
-        .sort((a, b) => a.id.localeCompare(b.id)) // Sort models alphabetically
+        .sort((a, b) => a.id.localeCompare(b.id))
         .forEach((model) => {
           const option = document.createElement("option");
           option.value = model.id;
-          option.textContent = model.id; // Display model ID
+          option.textContent = model.id;
           assistantModelSelect.appendChild(option);
         });
 
-      // Set assistant details
       editingAssistantNameSpan.textContent =
         assistant.name || `ID: ${assistant.id.substring(0, 6)}...`;
       assistantNameInput.value = assistant.name || "";
       assistantInstructionsTextarea.value = assistant.instructions || "";
+
+      // Populate Assistant ID and Link
+      if (assistant.id) {
+        editingAssistantIdSpan.textContent = assistant.id;
+        editingAssistantLink.href = `https://platform.openai.com/assistants/${assistant.id}`;
+      }
 
       // Set the selected model, adding it if it's not in the fetched list
       const currentModelExists = availableModels.some(
         (m) => m.id === assistant.model
       );
       if (!currentModelExists && assistant.model) {
-        // Check assistant.model exists
         console.warn(
           `Assistant model '${assistant.model}' is not in the fetched list. Adding it.`
         );
         const option = document.createElement("option");
         option.value = assistant.model;
         option.textContent = `${assistant.model} (Current)`;
-        assistantModelSelect.prepend(option); // Add it to the top
+        assistantModelSelect.prepend(option);
       } else if (!assistant.model) {
         console.warn("Assistant does not have a model specified.");
-        // Optionally add a placeholder or disable selection
         assistantModelSelect.prepend(
           new Option("No model assigned", "", true, true)
         );
         assistantModelSelect.value = "";
       }
 
-      // Only set value if assistant.model is not null/undefined
       if (assistant.model) {
-        assistantModelSelect.value = assistant.model; // Select the current model
+        assistantModelSelect.value = assistant.model;
+      } else {
+        // If no model is set, select the first in the list if available,
+        // otherwise it remains "No model assigned" or blank.
+        if (
+          assistantModelSelect.options.length > 0 &&
+          assistantModelSelect.options[0].value !== "" && // not the "No model" placeholder
+          assistantModelSelect.value === ""
+        ) {
+          // and nothing is selected
+          // assistantModelSelect.value = assistantModelSelect.options[0].value; // Optionally auto-select first
+        }
       }
 
       updateAssistantInstructionEditStatus("Details and models loaded.", false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching assistant details or models:", error);
-      let errorMsg = "Failed to load assistant details or models.";
-      if (error instanceof Error) {
-        errorMsg = `Error: ${error.message}`;
-      }
-      updateAssistantInstructionEditStatus(errorMsg, true);
+      updateAssistantInstructionEditStatus(
+        `Error: ${error.message || "Unknown error"}`,
+        true
+      );
       editingAssistantNameSpan.textContent = "Error";
       // Disable fields on error
       assistantModelSelect.innerHTML =
@@ -537,11 +557,18 @@ async function showAssistantInstructionEditView(assistantIdToEdit?: string) {
       saveAssistantInstructionsBtn.disabled = true;
     } finally {
       showSpinner(false);
-      // Re-enable save button only if loading was successful
-      if (!assistantModelSelect.disabled) {
+      // Re-enable save button only if loading was successful and fields are not disabled
+      if (
+        !assistantModelSelect.disabled &&
+        !assistantInstructionsTextarea.disabled
+      ) {
         saveAssistantInstructionsBtn.disabled = false;
       }
     }
+  } else {
+    console.error(
+      "[View] showAssistantInstructionEditView() - One or more view elements missing!"
+    );
   }
 }
 
@@ -695,17 +722,16 @@ async function initialize() {
       !regenerationControls ||
       !regenInstructionsInput ||
       !mainActionBtn ||
-      !mainActionBtnSpan ||
       !apiKeyInput ||
       !saveKeyBtn ||
       !backBtn ||
-      !assistantSearchInput ||
-      !selectAllBtn ||
-      !deselectAllBtn ||
+      !editAssistantsLink ||
       !assistantListContainer ||
       !saveAssistantFilterBtn ||
       !cancelAssistantFilterBtn ||
-      !editAssistantsLink ||
+      !assistantSearchInput ||
+      !selectAllBtn ||
+      !deselectAllBtn ||
       !instructionSelect ||
       !instructionEditView ||
       !newInstructionInput ||
@@ -713,8 +739,9 @@ async function initialize() {
       !instructionListContainer ||
       !saveInstructionsBtn ||
       !assistantInstructionEditView ||
-      !editAssistantInstructionsLink ||
+      !editAssistantInstructionsLink || // Ensuring this is correct
       !editingAssistantNameSpan ||
+      !assistantModelSelect ||
       !assistantInstructionsTextarea ||
       !saveAssistantInstructionsBtn ||
       !backToMainFromInstructionsBtn ||
@@ -723,17 +750,18 @@ async function initialize() {
       !toggleCustomInstructionButton ||
       !refreshAssistantListBtn ||
       !createAssistantBtn ||
-      !assistantNameInput
+      !assistantNameInput ||
+      !editingAssistantIdSpan || // Added check for new element
+      !editingAssistantLink // Added check for new element
     ) {
       console.error(
         "One or more essential UI elements not found in sidepanel.html"
       );
       document.body.innerHTML =
         "Error: Side panel UI elements missing or structure incorrect.";
-      return; // Stop initialization if elements are missing
+      return;
     }
 
-    // Load data from storage
     const storageData = await chrome.storage.local.get([
       "openai_api_key",
       VISIBLE_ASSISTANTS_STORAGE_KEY,
@@ -741,14 +769,12 @@ async function initialize() {
       SAVED_INSTRUCTIONS_KEY,
     ]);
 
-    // Load Saved Instructions
     if (
       storageData[SAVED_INSTRUCTIONS_KEY] &&
       Array.isArray(storageData[SAVED_INSTRUCTIONS_KEY])
     ) {
       savedInstructions = storageData[SAVED_INSTRUCTIONS_KEY];
     } else {
-      // Initialize if not present
       await chrome.storage.local.set({
         [SAVED_INSTRUCTIONS_KEY]: savedInstructions,
       });
@@ -756,7 +782,6 @@ async function initialize() {
     console.log("Loaded instructions:", savedInstructions);
     populateInstructionDropdown();
 
-    // Load Visible IDs
     if (
       storageData[VISIBLE_ASSISTANTS_STORAGE_KEY] &&
       Array.isArray(storageData[VISIBLE_ASSISTANTS_STORAGE_KEY])
@@ -767,7 +792,6 @@ async function initialize() {
       visibleAssistantIds = [];
     }
 
-    // Load Cached Assistants
     if (
       storageData[CACHED_ASSISTANTS_KEY] &&
       Array.isArray(storageData[CACHED_ASSISTANTS_KEY])
@@ -780,7 +804,6 @@ async function initialize() {
       console.log("Assistant cache is empty.");
     }
 
-    // Load API Key
     if (storageData.openai_api_key) {
       openAIApiKey = storageData.openai_api_key;
       console.log("[Init] API Key FOUND in storage.");
@@ -789,61 +812,56 @@ async function initialize() {
       }
       console.log("API Key loaded.");
 
-      // **** Ensure Assistant elements are visible ****
       console.log("[Init] Ensuring assistant elements are visible.");
-      assistantSelectLabel.style.display = ""; // Reset to default display
-      assistantSelect.style.display = ""; // Reset to default display
-      editAssistantsLink.style.display = ""; // Reset to default display (usually block/inline-block)
-      aiSelectBtn.style.display = ""; // Also ensure AI select button is visible
+      assistantSelectLabel.style.display = "";
+      assistantSelect.style.display = "";
+      editAssistantsLink.style.display = "";
+      aiSelectBtn.style.display = "";
 
-      if (allAssistants.length === 0) {
+      if (allAssistants.length === 0 && openAIApiKey) {
+        // only show if key exists
         updateStatus(
           "No assistants cached. Please 'Edit List' to load them.",
-          true
+          false // Not an error, just info
         );
-        populateAssistantDropdown(); // Populate with empty state
-        // editAssistantsLink visibility handled above
       }
+      populateAssistantDropdown(); // Call regardless to handle empty states
       showMainView();
     } else {
       console.log("[Init] API Key NOT FOUND in storage.");
       updateStatus("Please save your OpenAI API Key in Settings.");
-      // Hide Assistant elements if no key
       assistantSelectLabel.style.display = "none";
       assistantSelect.style.display = "none";
       editAssistantsLink.style.display = "none";
-      aiSelectBtn.style.display = "none"; // Hide AI select button too
-      console.log(
-        "[Init] Attempting to call showSettingsView() due to missing key..."
-      );
+      aiSelectBtn.style.display = "none";
+      populateAssistantDropdown(); // Populate with "no key" state
       showSettingsView();
     }
-
-    // Set initial button state based on API key presence
     setMainActionButtonState("generate", !openAIApiKey);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Init] Error during initialization:", error);
     let errorMsg = "Error loading settings.";
     if (error instanceof Error) {
       errorMsg = `Error loading settings: ${error.message}`;
     }
     updateStatus(errorMsg, true);
+    // Attempt to gracefully degrade or guide user
     assistantSelectLabel.style.display = "none";
     assistantSelect.style.display = "none";
     editAssistantsLink.style.display = "none";
+    aiSelectBtn.style.display = "none";
     allAssistants = [];
     visibleAssistantIds = [];
-    populateAssistantDropdown();
-    showSettingsView();
-    setMainActionButtonState("generate", true); // Disable button on error
+    populateAssistantDropdown(); // Show empty/error state in dropdown
+    showSettingsView(); // Guide to settings
+    setMainActionButtonState("generate", true);
   } finally {
-    // Ensure spinner is hidden when initialization attempt finishes
     showSpinner(false);
     console.log("[Init] Initialization attempt finished.");
   }
 
-  setupEventListeners(); // Setup listeners after initial load attempt
-  setupAssistantListActionListener(); // Call the new setup function
+  setupEventListeners();
+  setupAssistantListActionListener();
   console.log("[Init] Initialization complete.");
 }
 
@@ -1154,58 +1172,66 @@ function setupEventListeners() {
   aiSelectBtn.addEventListener("click", handleAiSelectAssistant);
   editAssistantsLink.addEventListener("click", showAssistantEditView);
   editInstructionsLink.addEventListener("click", showInstructionEditView);
-  editAssistantInstructionsLink.addEventListener(
-    "click",
-    () => showAssistantInstructionEditView() // Call without ID uses dropdown
-  );
-  regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
-  regenInstructionsInput.addEventListener("input", handleRegenInstructionInput);
-  assistantSelect.addEventListener("change", () => {
-    if (currentReply !== null) {
-      console.log("Assistant changed after reply generated, resetting state.");
-      resetReplyState();
-    }
-  });
-  instructionSelect.addEventListener("change", () => {
-    if (currentReply !== null) {
-      console.log(
-        "Instruction changed after reply generated. Switching to regenerate mode."
-      );
-      // 1. Change the button to "Regenerate Reply"
-      setMainActionButtonState("regenerate");
-      // 2. Ensure custom regeneration input is hidden if it was visible,
-      //    as the primary source of new instruction is the dropdown itself.
-      if (regenerationControls) regenerationControls.style.display = "none";
-      // 3. The existing email context, assistant selection, and generated reply text
-      //    should remain as they are. currentThreadId also remains.
-      //    The new instruction will be picked up from instructionSelect.value
-      //    or customInstructionInput when handleMainActionButtonClick is triggered.
-    } else {
-      // If no reply was generated yet, no special action is needed when instruction changes.
-      // The new instruction will simply be used if "Generate Reply" is clicked.
-      console.log(
-        "Instruction changed before any reply generated. New instruction will be used on next generation."
-      );
-    }
-  });
 
-  replyOutputTextarea.addEventListener("input", () => {
-    if (isUpdatingReplyTextareaFromContentScript) {
-      return; // Prevent loop if update is from content script
-    }
-    currentReply = replyOutputTextarea.value;
-    // Send update to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0] && tabs[0].id) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          action: "syncReplyToGmail",
-          text: currentReply,
-        });
+  if (editAssistantInstructionsLink) {
+    // Added null check for safety
+    editAssistantInstructionsLink.addEventListener("click", () =>
+      showAssistantInstructionEditView()
+    );
+  }
+
+  if (regenerateLinkBtn)
+    regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
+  if (regenInstructionsInput)
+    regenInstructionsInput.addEventListener(
+      "input",
+      handleRegenInstructionInput
+    );
+
+  if (assistantSelect) {
+    assistantSelect.addEventListener("change", () => {
+      if (currentReply !== null) {
+        console.log(
+          "Assistant changed after reply generated, resetting state."
+        );
+        resetReplyState();
       }
     });
-  });
+  }
 
-  // Custom Instruction Toggle
+  if (instructionSelect) {
+    instructionSelect.addEventListener("change", () => {
+      if (currentReply !== null) {
+        console.log(
+          "Instruction changed after reply generated. Switching to regenerate mode."
+        );
+        setMainActionButtonState("regenerate");
+        if (regenerationControls) regenerationControls.style.display = "none";
+      } else {
+        console.log(
+          "Instruction changed before any reply generated. New instruction will be used on next generation."
+        );
+      }
+    });
+  }
+
+  if (replyOutputTextarea) {
+    replyOutputTextarea.addEventListener("input", () => {
+      if (isUpdatingReplyTextareaFromContentScript) {
+        return;
+      }
+      currentReply = replyOutputTextarea.value;
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0] && tabs[0].id) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "syncReplyToGmail",
+            text: currentReply,
+          });
+        }
+      });
+    });
+  }
+
   if (
     toggleCustomInstructionButton &&
     instructionSelect &&
@@ -1226,62 +1252,76 @@ function setupEventListeners() {
       }
     });
   } else {
-    console.error("Custom instruction toggle elements not found!");
+    // console.error("Custom instruction toggle elements not found!"); // Reduced severity
   }
 
-  // Top Bar Listener
-  settingsBtn.addEventListener("click", () => {
-    console.log("[Event] Settings button clicked!");
-    showSettingsView();
-  });
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      console.log("[Event] Settings button clicked!");
+      showSettingsView();
+    });
+  }
 
-  // Settings View Listeners
-  saveKeyBtn.addEventListener("click", handleSaveApiKey);
-  backBtn.addEventListener("click", showMainView);
+  if (saveKeyBtn) saveKeyBtn.addEventListener("click", handleSaveApiKey);
+  if (backBtn) backBtn.addEventListener("click", showMainView);
 
-  // Assistant Edit View Listeners
-  assistantSearchInput.addEventListener("input", (e) => {
-    const searchTerm = (e.target as HTMLInputElement).value;
-    populateAssistantEditList(searchTerm);
-  });
-  selectAllBtn.addEventListener("click", () => handleSelectAllAssistants(true));
-  deselectAllBtn.addEventListener("click", () =>
-    handleSelectAllAssistants(false)
-  );
-  saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
-  cancelAssistantFilterBtn.addEventListener("click", showMainView);
-  refreshAssistantListBtn.addEventListener("click", handleRefreshAssistantList);
-  createAssistantBtn.addEventListener("click", handleCreateAssistant);
+  if (assistantSearchInput) {
+    assistantSearchInput.addEventListener("input", (e) => {
+      const searchTerm = (e.target as HTMLInputElement).value;
+      populateAssistantEditList(searchTerm);
+    });
+  }
+  if (selectAllBtn)
+    selectAllBtn.addEventListener("click", () =>
+      handleSelectAllAssistants(true)
+    );
+  if (deselectAllBtn) {
+    deselectAllBtn.addEventListener("click", () =>
+      handleSelectAllAssistants(false)
+    );
+  }
+  if (saveAssistantFilterBtn)
+    saveAssistantFilterBtn.addEventListener("click", saveAssistantFilter);
+  if (cancelAssistantFilterBtn)
+    cancelAssistantFilterBtn.addEventListener("click", showMainView);
+  if (refreshAssistantListBtn)
+    refreshAssistantListBtn.addEventListener(
+      "click",
+      handleRefreshAssistantList
+    );
+  if (createAssistantBtn)
+    createAssistantBtn.addEventListener("click", handleCreateAssistant);
 
-  // Instruction Edit View Listeners
-  addInstructionBtn.addEventListener("click", addInstruction);
-  saveInstructionsBtn.addEventListener("click", showMainView);
-  newInstructionInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      addInstruction();
-    }
-  });
+  if (addInstructionBtn)
+    addInstructionBtn.addEventListener("click", addInstruction);
+  if (saveInstructionsBtn)
+    saveInstructionsBtn.addEventListener("click", showMainView);
+  if (newInstructionInput) {
+    newInstructionInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        addInstruction();
+      }
+    });
+  }
 
-  // Assistant Instruction Edit View Listeners
-  saveAssistantInstructionsBtn.addEventListener(
-    "click",
-    handleSaveAssistantInstructions
-  );
-  backToMainFromInstructionsBtn.addEventListener("click", showMainView);
+  if (saveAssistantInstructionsBtn) {
+    saveAssistantInstructionsBtn.addEventListener(
+      "click",
+      handleSaveAssistantInstructions
+    );
+  }
+  if (backToMainFromInstructionsBtn)
+    backToMainFromInstructionsBtn.addEventListener("click", showMainView);
 
-  // Chrome Runtime Message Listener
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateEmailContent") {
       console.log("Received proactive email content update:", message);
       if (message.content) {
         currentEmailContent = message.content;
-        if (emailContentPre) emailContentPre!.textContent = currentEmailContent; // Update display
+        if (emailContentPre) emailContentPre!.textContent = currentEmailContent;
         updateStatus("Email content updated automatically.");
-        // **** RESET REPLY STATE ****
         resetReplyState();
-        // **************************
       } else {
-        // Handle potential error reported by content script
         updateStatus(
           `Error auto-updating content: ${message.error || "Unknown error"}`,
           true
@@ -1292,8 +1332,8 @@ function setupEventListeners() {
           }`;
         currentEmailContent = null;
       }
-      sendResponse({ success: true });
-      return false; // Indicate sync response
+      sendResponse({ success: true }); // Keep sendResponse if logic expects it
+      return false;
     }
 
     if (message.action === "syncReplyFromGmail") {
@@ -1301,22 +1341,19 @@ function setupEventListeners() {
       if (replyOutputTextarea) {
         isUpdatingReplyTextareaFromContentScript = true;
         replyOutputTextarea.value = message.text;
-        currentReply = message.text; // Keep internal state consistent
-        // If the reply section wasn't visible, show it
+        currentReply = message.text;
         if (
           generatedReplySection &&
           generatedReplySection.style.display === "none"
         ) {
           showGeneratedReply();
-          // Potentially adjust button state if needed, e.g., to "Insert"
-          // if currentActionButtonState was 'generate' and a reply now exists.
           if (currentActionButtonState === "generate" && message.text) {
             setMainActionButtonState("insert");
           }
         }
         isUpdatingReplyTextareaFromContentScript = false;
       }
-      sendResponse({ success: true, received: true }); // Acknowledge
+      sendResponse({ success: true, received: true });
       return true;
     }
 
@@ -1328,7 +1365,7 @@ function setupEventListeners() {
           message.error
         );
         alert(`Quick Reply Error: ${message.error}`);
-        showSpinner(false); // Ensure spinner is off
+        showSpinner(false);
         sendResponse({ success: false, error: message.error });
         return false;
       }
@@ -1338,55 +1375,63 @@ function setupEventListeners() {
           "Quick reply flow started but no email content received."
         );
         alert("Quick Reply Error: Could not retrieve email content.");
-        showSpinner(false); // Ensure spinner is off
+        showSpinner(false);
         sendResponse({ success: false, error: "Missing email content" });
         return false;
       }
 
       currentEmailContent = message.emailContent;
-      if (emailContentPre) emailContentPre!.textContent = currentEmailContent;
+      if (emailContentPre) emailContentPre.textContent = currentEmailContent;
 
-      // Reset thread ID before starting quick reply sequence
-      currentThreadId = null;
-      (async () => {
-        try {
-          console.log("Quick Reply: Starting AI Select...");
-          await handleAiSelectAssistant(); // Wait for AI select to finish
-          // Check if an assistant was actually selected
-          if (!assistantSelect.value) {
-            throw new Error("AI Select did not choose an assistant.");
+      const instructionToUse =
+        message.instructionType === "custom"
+          ? message.instructionText
+          : message.instructionText || null;
+
+      showSpinner(true);
+      updateStatus(
+        `Quick reply: ${message.instructionText || "Default generation"}...`
+      );
+
+      handleGenerateReply(false, instructionToUse)
+        .then(() => {
+          if (currentReply) {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+              if (tabs[0] && tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                  action: "insertQuickReply",
+                  text: currentReply,
+                });
+              }
+            });
+            sendResponse({ success: true });
+          } else {
+            sendResponse({ success: false, error: "Reply generation failed" });
           }
-
-          console.log("Quick Reply: Starting Generate Reply...");
-          // Generate reply (initial generation, not regeneration)
-          // Pass null for the instruction parameter as quick reply doesn't use UI instructions
-          await handleGenerateReply(false, null);
-
-          // Check if a reply was actually generated
-          if (!currentReply) {
-            throw new Error("Reply generation failed or produced no output.");
-          }
-
-          console.log("Quick Reply: Starting Insert Reply...");
-          await handleInsertReply(); // Insert the generated reply
-
-          console.log("Quick Reply flow completed.");
-        } catch (error) {
-          console.error("Error during Quick Reply sequence:", error);
-          // Alert is handled within the specific functions, just log here
-          showSpinner(false); // Ensure spinner is off on error
-        } finally {
-          // Spinner is turned off within handleAiSelectAssistant/handleGenerateReply
-          // No need to turn off again unless error happens before they run
-        }
-      })();
-
-      sendResponse({ success: true, message: "Quick reply flow initiated" });
-      return false; // Indicate sync response (async work started)
+        })
+        .catch((err: any) => {
+          console.error("Quick reply generation error:", err);
+          alert(
+            `Quick Reply Error: ${err.message || "Failed to generate reply."}`
+          );
+          sendResponse({
+            success: false,
+            error: err.message || "Failed to generate reply",
+          });
+        })
+        .finally(() => {
+          showSpinner(false);
+        });
+      return true;
     }
-    return false; // Default for unhandled messages
+    // Fallback for unhandled messages, if sendResponse is expected.
+    // If most paths are async and return true, this might not be strictly necessary
+    // unless a sync response is explicitly required for unhandled actions.
+    // sendResponse({ success: false, error: "Unknown action" });
+    return false;
   });
-  console.log("[Event] Event listeners set up.");
+
+  console.log("[Event] Event listeners setup complete.");
 }
 
 // --- Action Handlers ---
