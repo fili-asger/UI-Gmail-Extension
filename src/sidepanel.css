@@ -327,21 +327,20 @@ select#assistant-model-select {
 /* Adjust main button styling if needed inside flex */
 #main-content {
   position: relative; /* Needed for fixed positioning context */
-  padding-bottom: 60px; /* Add padding to bottom to avoid overlap with fixed button */
 }
 #main-content button {
   flex-shrink: 0;
 }
 
 .fixed-bottom-button-container {
-  position: absolute; /* Fix to the bottom of the main content view */
-  bottom: 0;
-  left: 0;
   width: 100%;
   padding: 14px;
+  padding-top: 0; /* Adjust padding as it's not at the very bottom of viewport */
+  margin-top: 16px; /* Add space above the buttons */
   background-color: var(--background-color); /* Match background */
-  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1); /* Add top shadow */
-  display: flex; /* Allows button to take full width */
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
 }
 
 .fixed-bottom-button-container button {

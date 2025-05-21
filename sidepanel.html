@@ -134,16 +134,22 @@
           class="form-input"
           placeholder="e.g., Make it more formal"
         />
-        <!-- Regenerate button itself might be combined with main action button -->
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="fixed-bottom-button-container">
+        <button
+          id="smart-reply-btn"
+          class="secondary-button"
+          style="margin-bottom: 8px"
+        >
+          <span>Smart Reply</span>
+        </button>
+        <button id="main-action-btn"><span>Generate Reply</span></button>
       </div>
 
       <!-- Status div is hidden via CSS -->
       <div id="status"></div>
-
-      <!-- Fixed Action Button at bottom (Dynamically changes) -->
-      <div class="fixed-bottom-button-container">
-        <button id="main-action-btn"><span>Generate Reply</span></button>
-      </div>
     </div>
 
     <!-- Settings View Area -->

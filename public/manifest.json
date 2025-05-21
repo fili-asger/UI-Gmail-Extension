@@ -19,12 +19,12 @@
     "service_worker": "src/background.js"
   },
   "commands": {
-    "execute-quick-reply": {
+    "execute-smart-reply": {
       "suggested_key": {
         "default": "Ctrl+E",
         "mac": "Command+E"
       },
-      "description": "AI Quick Reply for current email"
+      "description": "AI Smart Reply for current email"
     }
   }
 }

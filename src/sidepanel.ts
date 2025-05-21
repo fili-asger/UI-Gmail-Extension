@@ -132,6 +132,11 @@ const mainActionBtn = document.getElementById(
 ) as HTMLButtonElement;
 const mainActionBtnSpan = mainActionBtn.querySelector("span"); // Get span for text updates
 
+// Add the new Smart Reply button
+const smartReplyBtn = document.getElementById(
+  "smart-reply-btn"
+) as HTMLButtonElement;
+
 // Settings View Elements
 const apiKeyInput = document.getElementById("api-key") as HTMLInputElement;
 const saveKeyBtn = document.getElementById("save-key-btn") as HTMLButtonElement;
@@ -1216,7 +1221,6 @@ function setupEventListeners() {
   editInstructionsLink.addEventListener("click", showInstructionEditView);
 
   if (editAssistantInstructionsLink) {
-    // Added null check for safety
     editAssistantInstructionsLink.addEventListener("click", () =>
       showAssistantInstructionEditView()
     );
@@ -1225,7 +1229,7 @@ function setupEventListeners() {
   if (regenerateLinkBtn)
     regenerateLinkBtn.addEventListener("click", handleRegenerateLinkClick);
   if (makeShorterBtn)
-    makeShorterBtn.addEventListener("click", handleMakeShorterClick); // Added listener
+    makeShorterBtn.addEventListener("click", handleMakeShorterClick);
   if (regenInstructionsInput)
     regenInstructionsInput.addEventListener(
       "input",
@@ -1295,8 +1299,6 @@ function setupEventListeners() {
         toggleCustomInstructionButton.textContent = "Custom";
       }
     });
-  } else {
-    // console.error("Custom instruction toggle elements not found!"); // Reduced severity
   }
 
   if (settingsBtn) {
@@ -1357,6 +1359,33 @@ function setupEventListeners() {
   if (backToMainFromInstructionsBtn)
     backToMainFromInstructionsBtn.addEventListener("click", showMainView);
 
+  // Smart Reply Button Listener (moved up to be with other main view listeners)
+  if (smartReplyBtn) {
+    smartReplyBtn.addEventListener("click", async () => {
+      console.log(
+        "Smart Reply button clicked, initiating content script interaction."
+      );
+      try {
+        const [tab] = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        if (tab?.id && tab.url?.includes("mail.google.com")) {
+          await chrome.sidePanel.open({ tabId: tab.id });
+          console.log(
+            "Sending start-smart-reply to content script from button click..."
+          );
+          chrome.tabs.sendMessage(tab.id, { action: "start-smart-reply" });
+        } else {
+          alert("Smart Reply can only be used on an active Gmail tab.");
+        }
+      } catch (error) {
+        console.error("Error initiating Smart Reply from button:", error);
+        alert("Could not start Smart Reply. Check console for details.");
+      }
+    });
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateEmailContent") {
       console.log("Received proactive email content update:", message);
@@ -1365,19 +1394,17 @@ function setupEventListeners() {
         if (emailContentPre) emailContentPre!.textContent = currentEmailContent;
         updateStatus("Email content updated automatically.");
         resetReplyState();
+        sendResponse({ success: true });
       } else {
-        updateStatus(
-          `Error auto-updating content: ${message.error || "Unknown error"}`,
-          true
-        );
+        const errorMsg =
+          message.error || "Unknown error while updating content";
+        updateStatus(`Error auto-updating content: ${errorMsg}`, true);
         if (emailContentPre)
-          emailContentPre!.textContent = `Error auto-updating content: ${
-            message.error || "Unknown error"
-          }`;
+          emailContentPre!.textContent = `Error auto-updating content: ${errorMsg}`;
         currentEmailContent = null;
+        sendResponse({ success: false, error: errorMsg });
       }
-      sendResponse({ success: true }); // Keep sendResponse if logic expects it
-      return false;
+      return false; // Synchronous sendResponse
     }
 
     if (message.action === "syncReplyFromGmail") {
@@ -1398,17 +1425,17 @@ function setupEventListeners() {
         isUpdatingReplyTextareaFromContentScript = false;
       }
       sendResponse({ success: true, received: true });
-      return true;
+      return true; // Message handled, response sent.
     }
 
-    if (message.action === "execute-quick-reply-flow") {
-      console.log("Received quick reply flow trigger:", message);
+    if (message.action === "execute-smart-reply-flow") {
+      console.log("Received smart reply flow trigger:", message);
       if (message.error) {
         console.error(
-          "Error reported by content script during quick reply start:",
+          "Error reported by content script during smart reply start:",
           message.error
         );
-        alert(`Quick Reply Error: ${message.error}`);
+        alert(`Smart Reply Error: ${message.error}`);
         showSpinner(false);
         sendResponse({ success: false, error: message.error });
         return false;
@@ -1416,9 +1443,9 @@ function setupEventListeners() {
 
       if (!message.emailContent) {
         console.error(
-          "Quick reply flow started but no email content received."
+          "Smart reply flow started but no email content received."
         );
-        alert("Quick Reply Error: Could not retrieve email content.");
+        alert("Smart Reply Error: Could not retrieve email content.");
         showSpinner(false);
         sendResponse({ success: false, error: "Missing email content" });
         return false;
@@ -1427,51 +1454,81 @@ function setupEventListeners() {
       currentEmailContent = message.emailContent;
       if (emailContentPre) emailContentPre.textContent = currentEmailContent;
 
-      const instructionToUse =
-        message.instructionType === "custom"
-          ? message.instructionText
-          : message.instructionText || null;
+      (async () => {
+        try {
+          console.log(
+            "Execute Smart Reply Flow: Triggering AI assistant selection..."
+          );
+          await handleAiSelectAssistant();
 
-      showSpinner(true);
-      updateStatus(
-        `Quick reply: ${message.instructionText || "Default generation"}...`
-      );
-
-      handleGenerateReply(false, instructionToUse)
-        .then(() => {
-          if (currentReply) {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-              if (tabs[0] && tabs[0].id) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                  action: "insertQuickReply",
-                  text: currentReply,
-                });
-              }
+          if (!assistantSelect.value) {
+            console.log(
+              "Execute Smart Reply Flow: No assistant selected after AI Select. Aborting reply generation."
+            );
+            sendResponse({
+              success: false,
+              error: "No assistant selected by AI.",
             });
+            return;
+          }
+          const selectedAssistantName =
+            assistantSelect.options[assistantSelect.selectedIndex]?.text ||
+            assistantSelect.value;
+          console.log(
+            `Execute Smart Reply Flow: Assistant "${selectedAssistantName}" selected.`
+          );
+
+          let instructionToUse: string | null = null;
+          if (customInstructionInput.style.display !== "none") {
+            instructionToUse = customInstructionInput.value.trim();
+          } else {
+            instructionToUse = instructionSelect.value;
+          }
+          if (instructionToUse === "") instructionToUse = null;
+
+          console.log(
+            `Execute Smart Reply Flow: Using instruction: ${
+              instructionToUse || "Default (no specific instruction)"
+            }`
+          );
+
+          showSpinner(true);
+          updateStatus(
+            `Smart Reply with "${selectedAssistantName}": ${
+              instructionToUse || "Generating..."
+            }`
+          );
+
+          await handleGenerateReply(false, instructionToUse);
+
+          if (currentReply) {
             sendResponse({ success: true });
           } else {
-            sendResponse({ success: false, error: "Reply generation failed" });
+            sendResponse({
+              success: false,
+              error:
+                "Reply generation failed or no reply content after AI select.",
+            });
           }
-        })
-        .catch((err: any) => {
-          console.error("Quick reply generation error:", err);
-          alert(
-            `Quick Reply Error: ${err.message || "Failed to generate reply."}`
+        } catch (flowError) {
+          console.error(
+            "Error during AI select or subsequent reply generation in smart flow:",
+            flowError
           );
           sendResponse({
             success: false,
-            error: err.message || "Failed to generate reply",
+            error:
+              flowError instanceof Error
+                ? flowError.message
+                : "Failed during smart reply processing.",
           });
-        })
-        .finally(() => {
+        } finally {
           showSpinner(false);
-        });
+        }
+      })();
       return true;
     }
-    // Fallback for unhandled messages, if sendResponse is expected.
-    // If most paths are async and return true, this might not be strictly necessary
-    // unless a sync response is explicitly required for unhandled actions.
-    // sendResponse({ success: false, error: "Unknown action" });
+
     return false;
   });
 
@@ -2672,26 +2729,23 @@ async function handleConfirmTranslateClick() {
   updateTranslateModalStatus(`Translating to ${targetLanguage}...`, false);
   translatedReplyModalOutput.value = "Translating...";
   confirmTranslateModalBtn.disabled = true;
-  // Consider adding a small spinner inside the modal if showSpinner(true) is too broad
 
-  const prompt = `Translate the following text into ${targetLanguage}. Provide only the translated text and nothing else:
-
-"""
+  const prompt = `Translate the following text into ${targetLanguage}. Provide only the translated text and nothing else:\n\n\"\"\"
 ${originalText}
-"""
+\"\"\"
 `;
 
   try {
     const response = await fetchOpenAI<{
       choices: { message: { content: string } }[];
-    }>("/chat/completions", openAIApiKey, {
+    }>("/chat/completions", openAIApiKey!, {
       method: "POST",
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Using gpt-4o-mini as a capable default
+        model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3, // Lower temperature for more direct translation
+        temperature: 0.3,
       }),
-      headers: { "OpenAI-Beta": "" }, // No specific beta for chat completions here
+      headers: { "OpenAI-Beta": "" },
     });
 
     if (

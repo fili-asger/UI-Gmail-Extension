@@ -11,7 +11,7 @@ chrome.sidePanel
 chrome.commands.onCommand.addListener(async (command, tab) => {
   console.log(`Command received: ${command}`);
 
-  if (command === "execute-quick-reply") {
+  if (command === "execute-smart-reply") {
     if (tab?.id && tab.url?.includes("mail.google.com")) {
       try {
         // 1. Open the side panel
@@ -20,13 +20,13 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
         console.log("Side panel opened or already open.");
 
         // 2. Send a message to the content script to start the process
-        console.log("Sending start-quick-reply to content script...");
+        console.log("Sending start-smart-reply to content script...");
         const response = await chrome.tabs.sendMessage(tab.id, {
-          action: "start-quick-reply",
+          action: "start-smart-reply",
         });
-        console.log("Content script response to start-quick-reply:", response);
+        console.log("Content script response to start-smart-reply:", response);
       } catch (error) {
-        console.error("Error handling quick reply command:", error);
+        console.error("Error handling smart reply command:", error);
       }
     } else {
       console.log("Command received on non-Gmail tab or tab without ID.", tab);

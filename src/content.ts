@@ -371,8 +371,8 @@ function setupComposeBoxListener() {
 chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
   console.log("Message received in content script:", message);
 
-  if (message.action === "start-quick-reply") {
-    console.log("Handling start-quick-reply request...");
+  if (message.action === "start-smart-reply") {
+    console.log("Handling start-smart-reply request...");
     let replyFieldWasOpened = false;
     let success = true;
     let errorMsg: string | undefined = undefined;
@@ -380,7 +380,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     // 1. Get Email Content
     const emailResult = getEmailThreadContent();
     if (!emailResult.content) {
-      console.error("Failed to get email content for quick reply.");
+      console.error("Failed to get email content for smart reply.");
       success = false;
       errorMsg = emailResult.error || "Failed to get email content";
     }
@@ -409,9 +409,9 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
     // 3. Send result (content + status) directly to Side Panel
     //    The background script only initiated this.
-    console.log("Sending quick reply data to side panel");
+    console.log("Sending smart reply data to side panel");
     chrome.runtime.sendMessage({
-      action: "execute-quick-reply-flow", // New action for side panel
+      action: "execute-smart-reply-flow", // New action for side panel
       emailContent: emailResult.content,
       error: success ? undefined : errorMsg,
     });
